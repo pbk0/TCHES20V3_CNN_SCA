@@ -1,0 +1,48 @@
+# Multi-Experiments
+
+We do know that the models obtained with different hyper-parameters perform differently.
+But, here we use same models and same well tuned hyper-parameters and show that they perform 
+differently.
+
+Here we will do 100 experiments (using same model and dataset):
+
++ In each experiment:
+  + We perform training with
+    + given model architecture
+    + given hyper-parameters and
+    + given epoch
+  + Then we compute average rank for trained model
+    + average rank is computed using attack dataset which is randomly shuffled for each attack
+    
++ For all 100 experiments
+  + we plot rank plots per experiment
+  + a histogram of average minimum number of traces required per experiment for rank <= 0
+  + a histogram of average minimum number of traces required per experiment for rank < 0.5
+  + a histogram of average minimum number of traces required per experiment for rank < 1.0  
+    
+Also, we will implement early stopping based on validation accuracy and rerun experiments again.
+
+
+## Install
+
+python version used: `3.7.10`
+
+```cmd
+pip install numpy==1.19.5 
+pip install tqdm==4.41.1 
+pip install h5py==2.10.0 
+pip install matplotlib==3.2.2 
+pip install tensorflow==1.15.2 
+pip install keras==2.3.1 
+pip install scikit-learn==0.24.2 
+pip install kaleido==0.2.1 
+pip install psutil==5.8.0 
+pip install pandas==1.2.4 
+pip install plotly==5.0.0 
+```
+
+## Links
+
+[paper](https://tches.iacr.org/index.php/TCHES/article/view/8586/8153)
+
+[forked repo](https://github.com/SpikingNeuron/TCHES20V3_CNN_SCA)
