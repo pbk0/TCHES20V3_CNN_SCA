@@ -1,6 +1,8 @@
 import sys
 import zipfile
 
+import pandas as pd
+
 sys.path.append("..")
 import typing as t
 import pathlib
@@ -395,6 +397,19 @@ class Experiment(t.NamedTuple):
                 f"Default parameters not available for model `{self.model.name}` with dataset `{self.dataset.name}`"
             )
 
+    @property
+    def ranks(self) -> np.ndarray:
+        # noinspection PyTypeChecker
+        return np.load(self.ranks_file_path.resolve().as_posix())
+
+    @property
+    def losses(self) -> t.Tuple[np.ndarray, np.ndarray]:
+        with open(self.history_file_path.as_posix(), 'rb') as file_pi:
+            history = pickle.load(file_pi)
+        train_loss = history['loss']
+        val_loss = history['val_loss']
+        return train_loss, val_loss
+
     def dump_plots(self):
         # ---------------------------------------------------- 01
         # check if done
@@ -609,36 +624,231 @@ class Experiment(t.NamedTuple):
 
     @classmethod
     def report_it(cls):
+
         # --------------------------------------------------- 01
-        # report md file
-        _report_md = ROOT_DIR / "report.md"
-        _report_md_lines = [
-            f"# Plots for 100 experiments", ""
-        ]
+        # wipe any stale results
+        # cls.wipe_it()
 
         # --------------------------------------------------- 02
-        # wipe any stale results
-        cls.wipe_it()
-
-        # --------------------------------------------------- 03
         # loop over - no early stopping
+        print("Generating report ...")
         for _dataset in DEFAULT_PARAMS.keys():
-            for _model in DEFAULT_PARAMS[_dataset].keys():
-                # get all experiments with results available
-                _all_experiments = []
-                for _id in range(NUM_EXPERIMENTS):
-                    _experiment = Experiment(
-                        dataset=_dataset, model=_model,
-                        early_stopping=False, id=_id,
+            # ----------------------------------------------- 02.01
+            # report md file
+            _report_md_file_path = ROOT_DIR.parent / f"report_{_dataset.name}.md"
+            _report_md_lines = [
+                f"# Dataset {_dataset.name}: Analysis of {NUM_EXPERIMENTS} experiments", ""
+            ]
+            # derive some ranges
+            _avg_rank_y_min = 0.
+            _avg_rank_y_max = 0.
+            _rank_variance_y_min = 0.
+            _rank_variance_y_max = 0.
+            # precompute certain things that are global to models used by this dataset
+            for _es in [False, True]:
+                for _model in DEFAULT_PARAMS[_dataset].keys():
+                    for _id in range(NUM_EXPERIMENTS):
+                        _experiment = Experiment(
+                            dataset=_dataset, model=_model,
+                            early_stopping=_es, id=_id,
+                        )
+                        if not (_experiment.ranks_file_path.exists() and _experiment.history_file_path.exists()):
+                            continue
+                        _ranks = _experiment.ranks
+                        _avg_rank = np.mean(_ranks, axis=0)
+                        _rank_variance = np.var(_ranks, axis=0)
+                        # update y ranges
+                        # noinspection PyArgumentList
+                        _avg_rank_y_max = max(_avg_rank_y_max, _avg_rank.max())
+                        # noinspection PyArgumentList
+                        _rank_variance_y_max = max(_rank_variance_y_max, _rank_variance.max())
+
+            # ----------------------------------------------- 02.02
+            for _es in [False, True]:
+
+                if _es:
+                    _report_md_lines += [
+                        f"## Modified original to work with early stopping", ""
+                    ]
+                else:
+                    _report_md_lines += [
+                        f"## Original (i.e. without early stopping)", ""
+                    ]
+
+                # lines for table
+                _table_header = "|"
+                _table_sep = "|"
+                _table_avg_rank = "|"
+                _table_rank_variance = "|"
+                _table_train_loss = "|"
+                _table_val_loss = "|"
+
+                # violin fig data
+                _violin_fig_data = {
+                    'experiment_id': [],
+                    'model': [],
+                    'min traces needed for average rank to be zero': [],
+                }
+
+                for _model in DEFAULT_PARAMS[_dataset].keys():
+                    _total_experiments = 0
+                    _failed_experiments = 0
+
+                    # create figures
+                    _fig_name = f"{_dataset.name}-{_model.name} {'(with early stopping)' if _es else ''}"
+                    _avg_rank_fig = go.Figure(
+                        layout=go.Layout(
+                            title=go.layout.Title(
+                                text=f"Average Rank: {_fig_name}")
+                        )
                     )
-                    if _experiment.ranks_file_path.exists() and _experiment.history_file_path.exists():
-                        _all_experiments.append(_experiment)
+                    _rank_variance_fig = go.Figure(
+                        layout=go.Layout(
+                            title=go.layout.Title(
+                                text=f"Rank Variance: {_fig_name}")
+                        )
+                    )
+                    _train_loss_fig = go.Figure(
+                        layout=go.Layout(
+                            title=go.layout.Title(text=f"Train Loss: {_fig_name}")
+                        )
+                    )
+                    _val_loss_fig = go.Figure(
+                        layout=go.Layout(
+                            title=go.layout.Title(text=f"Validation Loss: {_fig_name}")
+                        )
+                    )
 
-                # if no experiments then skip next steps
-                if len(_all_experiments) == 0:
-                    continue
+                    # get all experiments with results available
+                    for _id in range(NUM_EXPERIMENTS):
+                        # get experiment
+                        _experiment = Experiment(
+                            dataset=_dataset, model=_model,
+                            early_stopping=_es, id=_id,
+                        )
 
-                #
+                        # skip if not available
+                        if not (_experiment.ranks_file_path.exists() and _experiment.history_file_path.exists()):
+                            continue
+
+                        # extract some data
+                        _rank_plot_until = _dataset.rank_plot_until
+                        _ranks = _experiment.ranks
+                        _train_loss, _val_loss = _experiment.losses
+                        _avg_rank = np.mean(_ranks, axis=0)
+                        _rank_variance = np.var(_ranks, axis=0)
+                        _total_experiments += 1
+                        _traces_with_rank_0 = np.where(_avg_rank <= 0.0)[0]
+                        if len(_traces_with_rank_0) == 0:
+                            _failed_experiments += 1
+                        else:
+                            _violin_fig_data['experiment_id'].append(_id)
+                            _violin_fig_data['model'].append(_model.name)
+                            _violin_fig_data['min traces needed for average rank to be zero'].append(
+                                _traces_with_rank_0.min()
+                            )
+
+                        # add to figure
+                        _avg_rank_fig.add_trace(
+                            go.Scatter(
+                                x=np.arange(_rank_plot_until),
+                                y=_avg_rank[:_rank_plot_until],
+                                mode='lines',
+                                name=f"exp_{_id:03d}",
+                                showlegend=False,
+                            )
+                        )
+                        _rank_variance_fig.add_trace(
+                            go.Scatter(
+                                x=np.arange(_rank_plot_until),
+                                y=_rank_variance[:_rank_plot_until],
+                                mode='lines',
+                                name=f"exp_{_id:03d}",
+                                showlegend=False,
+                            )
+                        )
+                        _train_loss_fig.add_trace(
+                            go.Scatter(
+                                x=np.arange(len(_train_loss)),
+                                y=_train_loss,
+                                mode='lines',
+                                name=f"exp_{_id:03d}",
+                                showlegend=False,
+                            )
+                        )
+                        _val_loss_fig.add_trace(
+                            go.Scatter(
+                                x=np.arange(len(_val_loss)),
+                                y=_val_loss,
+                                mode='lines',
+                                name=f"exp_{_id:03d}",
+                                showlegend=False,
+                            )
+                        )
+
+                    # update y range for some figures
+                    _avg_rank_fig.update_layout(yaxis_range=[_avg_rank_y_min, _avg_rank_y_max])
+                    _rank_variance_fig.update_layout(yaxis_range=[_rank_variance_y_min, _rank_variance_y_max])
+
+                    # save figures
+                    _plot_relative_path = f"plots/{_dataset.name}/{_model.name}/{'es' if _es else 'no_es'}"
+                    _plot_dir = ROOT_DIR.parent / _plot_relative_path
+                    if not _plot_dir.exists():
+                        _plot_dir.mkdir(parents=True)
+                    _avg_rank_fig.write_image((_plot_dir / f"average_rank.svg").as_posix())
+                    _rank_variance_fig.write_image((_plot_dir / f"rank_variance.svg").as_posix())
+                    _train_loss_fig.write_image((_plot_dir / f"train_loss.svg").as_posix())
+                    _val_loss_fig.write_image((_plot_dir / f"val_loss.svg").as_posix())
+
+                    # make tabular report
+                    # lines for table
+                    if _failed_experiments > 0:
+                        _percent = (_failed_experiments / _total_experiments) * 100.
+                        _table_success_status = f"<span style='color:red'> " \
+                                                f"**{_percent:.2f} % FAILURES** " \
+                                                f"</span>"
+                    else:
+                        _table_success_status = f"<span style='color:green'> " \
+                                                f"**ALL SUCCESSES** " \
+                                                f"</span>"
+                    _table_header += f"{_model.name}<br>{_table_success_status}|"
+                    _table_sep += "---|"
+                    _table_avg_rank += f"![Average Rank]({_plot_relative_path}/average_rank.svg)|"
+                    _table_rank_variance += f"![Rank Variance]({_plot_relative_path}/rank_variance.svg)|"
+                    _table_train_loss += f"![Train Loss]({_plot_relative_path}/train_loss.svg)|"
+                    _table_val_loss += f"![Validation Loss]({_plot_relative_path}/val_loss.svg)|"
+
+                # violin figure
+                _violin_df = pd.DataFrame(_violin_fig_data)
+                _violin_fig = px.violin(
+                    _violin_df,
+                    y="min traces needed for average rank to be zero",
+                    x="model",
+                    color="model",
+                    box=True,
+                    points="all",
+                    hover_data=_violin_df.columns,
+                    title="Distribution of min traces needed for average rank to be zero",
+                )
+                _violin_relative_path = \
+                    f"plots/{_dataset.name}/{'violin_es.svg' if _es else 'violin_no_es.svg'}"
+                _violin_fig_path = ROOT_DIR.parent / _violin_relative_path
+                _violin_fig.write_image(_violin_fig_path.as_posix())
+
+                # make table
+                _report_md_lines += [
+                    f"![Distribution of min traces needed for average rank to be zero]"
+                    f"({_violin_relative_path})",
+                    "",
+                    _table_header, _table_sep,
+                    _table_avg_rank, _table_rank_variance,
+                    _table_train_loss, _table_val_loss
+                ]
+
+            # ----------------------------------------------- 02.03
+            _report_md_file_path.write_text(
+                "\n".join(_report_md_lines)
+            )
 
     @classmethod
     def wipe_it(cls):
