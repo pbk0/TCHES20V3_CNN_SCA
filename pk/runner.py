@@ -232,18 +232,18 @@ DEFAULT_PARAMS = {
             epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
             preprocessor=Preprocessor.none,
         ),
-        Model.ascad_cnn: Params(
-            epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
-            preprocessor=Preprocessor.none,
-        ),
+        # Model.ascad_cnn: Params(
+        #     epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
+        #     preprocessor=Preprocessor.none,
+        # ),
         Model.ascad_mlp_fn: Params(
             epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
             preprocessor=Preprocessor.feature_standardization,
         ),
-        Model.ascad_cnn_fn: Params(
-            epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
-            preprocessor=Preprocessor.feature_standardization,
-        ),
+        # Model.ascad_cnn_fn: Params(
+        #     epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
+        #     preprocessor=Preprocessor.feature_standardization,
+        # ),
         Model.eff_cnn: Params(
             epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
             preprocessor=Preprocessor.feature_standardization,
@@ -258,18 +258,18 @@ DEFAULT_PARAMS = {
             epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
             preprocessor=Preprocessor.none,
         ),
-        Model.ascad_cnn: Params(
-            epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
-            preprocessor=Preprocessor.none,
-        ),
+        # Model.ascad_cnn: Params(
+        #     epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
+        #     preprocessor=Preprocessor.none,
+        # ),
         Model.ascad_mlp_fn: Params(
             epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
             preprocessor=Preprocessor.horizontal_standardization,
         ),
-        Model.ascad_cnn_fn: Params(
-            epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
-            preprocessor=Preprocessor.horizontal_standardization,
-        ),
+        # Model.ascad_cnn_fn: Params(
+        #     epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
+        #     preprocessor=Preprocessor.horizontal_standardization,
+        # ),
         Model.eff_cnn: Params(
             epochs=50, batch_size=256, learning_rate=5e-3, one_cycle_lr=True,
             preprocessor=Preprocessor.horizontal_standardization,
@@ -284,18 +284,18 @@ DEFAULT_PARAMS = {
             epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
             preprocessor=Preprocessor.none,
         ),
-        Model.ascad_cnn: Params(
-            epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
-            preprocessor=Preprocessor.none,
-        ),
+        # Model.ascad_cnn: Params(
+        #     epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
+        #     preprocessor=Preprocessor.none,
+        # ),
         Model.ascad_mlp_fn: Params(
             epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
             preprocessor=Preprocessor.horizontal_standardization,
         ),
-        Model.ascad_cnn_fn: Params(
-            epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
-            preprocessor=Preprocessor.horizontal_standardization,
-        ),
+        # Model.ascad_cnn_fn: Params(
+        #     epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
+        #     preprocessor=Preprocessor.horizontal_standardization,
+        # ),
         Model.eff_cnn: Params(
             epochs=50, batch_size=256, learning_rate=1e-2, one_cycle_lr=True,
             preprocessor=Preprocessor.horizontal_standardization,
