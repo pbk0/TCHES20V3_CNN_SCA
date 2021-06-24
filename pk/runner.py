@@ -689,6 +689,7 @@ class Experiment(t.NamedTuple):
                     'model': [],
                     'min traces needed for average rank to be zero': [],
                 }
+                _violin_failure_percent = {}
 
                 for _model in DEFAULT_PARAMS[_dataset].keys():
                     _total_experiments = 0
@@ -803,14 +804,16 @@ class Experiment(t.NamedTuple):
                     # make tabular report
                     # lines for table
                     if _failed_experiments > 0:
-                        _percent = (_failed_experiments / _total_experiments) * 100.
+                        _failure_percent = (_failed_experiments / _total_experiments) * 100.
                         _table_success_status = f"<span style='color:red'> " \
-                                                f"**{_percent:.2f} % FAILURES** " \
+                                                f"**{_failure_percent:.2f} % FAILURES** " \
                                                 f"</span>"
                     else:
+                        _failure_percent = 0.
                         _table_success_status = f"<span style='color:green'> " \
                                                 f"**ALL SUCCESSES** " \
                                                 f"</span>"
+                    _violin_failure_percent[_model.name] = _failure_percent
                     _table_header += f"{_model.name}<br>{_table_success_status}|"
                     _table_sep += "---|"
                     _table_avg_rank += f"![Average Rank]({_plot_relative_path}/average_rank.svg)|"
@@ -826,10 +829,23 @@ class Experiment(t.NamedTuple):
                     x="model",
                     color="model",
                     box=True,
-                    points="all",
+                    # points="all",
                     hover_data=_violin_df.columns,
                     title="Distribution of min traces needed for average rank to be zero",
                 )
+                for _model_name, _failure_percent in _violin_failure_percent.items():
+                    if _failure_percent == 0.:
+                        _text = f" All passed "
+                        _bgcolor = 'lightgreen'
+                        _bordercolor = 'green'
+                    else:
+                        _text = f" {_failure_percent:.2f} % failed "
+                        _bgcolor = 'pink'
+                        _bordercolor = 'red'
+                    _violin_fig.add_annotation(
+                        x=_model_name, y=-2,
+                        text=_text, bgcolor=_bgcolor, bordercolor=_bordercolor, showarrow=False,
+                    )
                 _violin_relative_path = \
                     f"plots/{_dataset.name}/{'violin_es.svg' if _es else 'violin_no_es.svg'}"
                 _violin_fig_path = ROOT_DIR.parent / _violin_relative_path
