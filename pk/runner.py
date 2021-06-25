@@ -690,6 +690,7 @@ class Experiment(t.NamedTuple):
                     'min traces needed for average rank to be zero': [],
                 }
                 _violin_failure_percent = {}
+                _violin_y_max = 0
 
                 for _model in DEFAULT_PARAMS[_dataset].keys():
                     _total_experiments = 0
@@ -740,14 +741,19 @@ class Experiment(t.NamedTuple):
                         _rank_variance = np.var(_ranks, axis=0)
                         _total_experiments += 1
                         _traces_with_rank_0 = np.where(_avg_rank <= 0.0)[0]
+                        _violin_fig_data['experiment_id'].append(_id)
+                        _violin_fig_data['model'].append(_model.name)
                         if len(_traces_with_rank_0) == 0:
                             _failed_experiments += 1
-                        else:
-                            _violin_fig_data['experiment_id'].append(_id)
-                            _violin_fig_data['model'].append(_model.name)
                             _violin_fig_data['min traces needed for average rank to be zero'].append(
-                                _traces_with_rank_0.min()
+                                np.nan
                             )
+                        else:
+                            _traces_with_rank_0_min = _traces_with_rank_0.min()
+                            _violin_fig_data['min traces needed for average rank to be zero'].append(
+                                _traces_with_rank_0_min
+                            )
+                            _violin_y_max = max(_violin_y_max, _traces_with_rank_0_min)
 
                         # add to figure
                         _avg_rank_fig.add_trace(
@@ -828,8 +834,8 @@ class Experiment(t.NamedTuple):
                     y="min traces needed for average rank to be zero",
                     x="model",
                     color="model",
-                    box=True,
-                    # points="all",
+                    box=False,
+                    points="all",
                     hover_data=_violin_df.columns,
                     title="Distribution of min traces needed for average rank to be zero",
                 )
@@ -843,8 +849,11 @@ class Experiment(t.NamedTuple):
                         _bgcolor = 'pink'
                         _bordercolor = 'red'
                     _violin_fig.add_annotation(
-                        x=_model_name, y=-2,
-                        text=_text, bgcolor=_bgcolor, bordercolor=_bordercolor, showarrow=False,
+                        x=_model_name, y=_violin_y_max + 2,
+                        text=_text,
+                        # bgcolor=_bgcolor,
+                        bordercolor=_bordercolor,
+                        showarrow=True,
                     )
                 _violin_relative_path = \
                     f"plots/{_dataset.name}/{'violin_es.svg' if _es else 'violin_no_es.svg'}"
