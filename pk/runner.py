@@ -746,7 +746,7 @@ class Experiment(t.NamedTuple):
                         if len(_traces_with_rank_0) == 0:
                             _failed_experiments += 1
                             _violin_fig_data['min traces needed for average rank to be zero'].append(
-                                np.nan
+                                np.inf
                             )
                         else:
                             _traces_with_rank_0_min = _traces_with_rank_0.min()
