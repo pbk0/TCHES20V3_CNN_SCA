@@ -633,6 +633,7 @@ class Experiment(t.NamedTuple):
         # loop over - no early stopping
         print("Generating report ...")
         for _dataset in DEFAULT_PARAMS.keys():
+            print(f"Generating report for {_dataset.name}")
             # ----------------------------------------------- 02.01
             # report md file
             _report_md_file_path = ROOT_DIR.parent / f"report_{_dataset.name}.md"
@@ -644,6 +645,10 @@ class Experiment(t.NamedTuple):
             _avg_rank_y_max = 0.
             _rank_variance_y_min = 0.
             _rank_variance_y_max = 0.
+            _train_loss_y_min = np.inf
+            _train_loss_y_max = 0.
+            _val_loss_y_min = np.inf
+            _val_loss_y_max = 0.
             # precompute certain things that are global to models used by this dataset
             for _es in [False, True]:
                 for _model in DEFAULT_PARAMS[_dataset].keys():
@@ -662,6 +667,16 @@ class Experiment(t.NamedTuple):
                         _avg_rank_y_max = max(_avg_rank_y_max, _avg_rank.max())
                         # noinspection PyArgumentList
                         _rank_variance_y_max = max(_rank_variance_y_max, _rank_variance.max())
+                        # train and val loss
+                        _train_loss, _val_loss = _experiment.losses
+                        # noinspection PyArgumentList
+                        _train_loss_y_min = min(_train_loss_y_min, min(_train_loss))
+                        # noinspection PyArgumentList
+                        _val_loss_y_min = min(_val_loss_y_min, min(_val_loss))
+                        # noinspection PyArgumentList
+                        _train_loss_y_max = max(_train_loss_y_max, max(_train_loss))
+                        # noinspection PyArgumentList
+                        _val_loss_y_max = max(_val_loss_y_max, max(_val_loss))
 
             # ----------------------------------------------- 02.02
             for _es in [False, True]:
@@ -690,11 +705,15 @@ class Experiment(t.NamedTuple):
                     'min traces needed for average rank to be zero': [],
                 }
                 _violin_failure_percent = {}
+                _violin_min_traces_to_converge = {}
+                _violin_max_traces_to_converge = {}
                 _violin_y_max = 0
 
                 for _model in DEFAULT_PARAMS[_dataset].keys():
                     _total_experiments = 0
                     _failed_experiments = 0
+                    _min_traces_to_converge = np.inf
+                    _max_traces_to_converge = 0
 
                     # create figures
                     _fig_name = f"{_dataset.name}-{_model.name} {'(with early stopping)' if _es else ''}"
@@ -748,12 +767,15 @@ class Experiment(t.NamedTuple):
                             _violin_fig_data['min traces needed for average rank to be zero'].append(
                                 np.inf
                             )
+                            _max_traces_to_converge = np.inf
                         else:
                             _traces_with_rank_0_min = _traces_with_rank_0.min()
                             _violin_fig_data['min traces needed for average rank to be zero'].append(
                                 _traces_with_rank_0_min
                             )
                             _violin_y_max = max(_violin_y_max, _traces_with_rank_0_min)
+                            _min_traces_to_converge = min(_min_traces_to_converge, _traces_with_rank_0_min)
+                            _max_traces_to_converge = max(_max_traces_to_converge, _traces_with_rank_0_min)
 
                         # add to figure
                         _avg_rank_fig.add_trace(
@@ -796,6 +818,8 @@ class Experiment(t.NamedTuple):
                     # update y range for some figures
                     _avg_rank_fig.update_layout(yaxis_range=[_avg_rank_y_min, _avg_rank_y_max])
                     _rank_variance_fig.update_layout(yaxis_range=[_rank_variance_y_min, _rank_variance_y_max])
+                    _train_loss_fig.update_layout(yaxis_range=[_train_loss_y_min, _train_loss_y_max])
+                    _val_loss_fig.update_layout(yaxis_range=[_val_loss_y_min, _val_loss_y_max])
 
                     # save figures
                     _plot_relative_path = f"plots/{_dataset.name}/{_model.name}/{'es' if _es else 'no_es'}"
@@ -812,13 +836,15 @@ class Experiment(t.NamedTuple):
                     if _failed_experiments > 0:
                         _failure_percent = (_failed_experiments / _total_experiments) * 100.
                         _table_success_status = f"<span style='color:red'> " \
-                                                f"**{_failure_percent:.2f} % FAILURES** " \
+                                                f"**{_failure_percent:.2f} % FAILED** " \
                                                 f"</span>"
                     else:
                         _failure_percent = 0.
                         _table_success_status = f"<span style='color:green'> " \
-                                                f"**ALL SUCCESSES** " \
+                                                f"**ALL PASSES** " \
                                                 f"</span>"
+                    _violin_min_traces_to_converge[_model.name] = _min_traces_to_converge
+                    _violin_max_traces_to_converge[_model.name] = _max_traces_to_converge
                     _violin_failure_percent[_model.name] = _failure_percent
                     _table_header += f"{_model.name}<br>{_table_success_status}|"
                     _table_sep += "---|"
@@ -840,6 +866,8 @@ class Experiment(t.NamedTuple):
                     title="Distribution of min traces needed for average rank to be zero",
                 )
                 for _model_name, _failure_percent in _violin_failure_percent.items():
+                    _min_traces_to_converge = _violin_min_traces_to_converge[_model_name]
+                    _max_traces_to_converge = _violin_max_traces_to_converge[_model_name]
                     if _failure_percent == 0.:
                         _text = f" All passed "
                         _bgcolor = 'lightgreen'
@@ -848,6 +876,7 @@ class Experiment(t.NamedTuple):
                         _text = f" {_failure_percent:.2f} % failed "
                         _bgcolor = 'pink'
                         _bordercolor = 'red'
+                    _text += f"<br>min: {_min_traces_to_converge}<br>max: {_max_traces_to_converge}"
                     _violin_fig.add_annotation(
                         x=_model_name, y=_violin_y_max + 2,
                         text=_text,
