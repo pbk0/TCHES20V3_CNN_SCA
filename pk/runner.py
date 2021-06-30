@@ -632,13 +632,23 @@ class Experiment(t.NamedTuple):
         # --------------------------------------------------- 02
         # loop over - no early stopping
         print("Generating report ...")
+        _reports_dir = ROOT_DIR.parent / "reports"
+        if not _reports_dir.exists():
+            _reports_dir.mkdir()
+        _base_report_md_file_path = ROOT_DIR.parent / "reports.md"
+        _base_report_md_lines = [
+            f"# Detailed Analysis", ""
+        ]
         for _dataset in DEFAULT_PARAMS.keys():
             print(f"Generating report for {_dataset.name}")
             # ----------------------------------------------- 02.01
             # report md file
-            _report_md_file_path = ROOT_DIR.parent / f"report_{_dataset.name}.md"
+            _report_md_file_path = _reports_dir / f"report_{_dataset.name}.md"
             _report_md_lines = [
                 f"# Dataset {_dataset.name}: Analysis of {NUM_EXPERIMENTS} experiments", ""
+            ]
+            _base_report_md_lines += [
+                f"## [{_dataset.name}]({_report_md_file_path.as_posix()})"
             ]
             # derive some ranges
             _avg_rank_y_min = 0.
@@ -822,7 +832,7 @@ class Experiment(t.NamedTuple):
                     _val_loss_fig.update_layout(yaxis_range=[_val_loss_y_min, _val_loss_y_max])
 
                     # save figures
-                    _plot_relative_path = f"plots/{_dataset.name}/{_model.name}/{'es' if _es else 'no_es'}"
+                    _plot_relative_path = f"../plots/{_dataset.name}/{_model.name}/{'es' if _es else 'no_es'}"
                     _plot_dir = ROOT_DIR.parent / _plot_relative_path
                     if not _plot_dir.exists():
                         _plot_dir.mkdir(parents=True)
@@ -885,7 +895,7 @@ class Experiment(t.NamedTuple):
                         showarrow=True,
                     )
                 _violin_relative_path = \
-                    f"plots/{_dataset.name}/{'violin_es.svg' if _es else 'violin_no_es.svg'}"
+                    f"../plots/{_dataset.name}/{'violin_es.svg' if _es else 'violin_no_es.svg'}"
                 _violin_fig_path = ROOT_DIR.parent / _violin_relative_path
                 _violin_fig.write_image(_violin_fig_path.as_posix())
 
@@ -903,6 +913,10 @@ class Experiment(t.NamedTuple):
             _report_md_file_path.write_text(
                 "\n".join(_report_md_lines)
             )
+
+        _base_report_md_file_path.write_text(
+            "\n".join(_base_report_md_lines)
+        )
 
     @classmethod
     def wipe_it(cls):
