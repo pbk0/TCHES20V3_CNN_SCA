@@ -14,11 +14,6 @@ Here we will do 100 experiments (using same model and dataset):
   + Then we compute average rank for trained model
     + average rank is computed using attack dataset which is randomly shuffled for each attack
     
-+ For all 100 experiments
-  + we plot rank plots per experiment
-  + a histogram of average minimum number of traces required per experiment for rank <= 0
-  + a histogram of average minimum number of traces required per experiment for rank < 0.5
-  + a histogram of average minimum number of traces required per experiment for rank < 1.0  
     
 Also, we will implement early stopping based on validation accuracy and rerun experiments again.
 
