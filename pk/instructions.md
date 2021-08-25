@@ -43,7 +43,7 @@ pip install plotly==5.0.0
 
 ## Check reports
 
-You can view experiments across different datasets 
+You can view experiments precomputed results across different datasets with below links 
 
 + [ascad_0](reports/report_ascad_0.md)
 + [ascad_50](reports/report_ascad_50.md)
