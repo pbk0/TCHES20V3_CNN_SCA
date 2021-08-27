@@ -370,4 +370,37 @@ def noConv1_aes_hd(input_size=1250,learning_rate=0.00001,classes=256):
     model = Model(trace_input, x, name='noConv1_aes_hd')
     optimizer = Adam(lr=learning_rate)
     model.compile(loss='categorical_crossentropy',optimizer=optimizer, metrics=['accuracy'])
-    return model    
+    return model
+
+
+def aisy_ascad_f_hw_mlp(input_size=700, learning_rate=1e-5, classes=9):
+    assert classes == 9
+    img_input = Input(shape=(input_size, 1))
+    x = Flatten(name='flatten')(img_input)
+    x = Dense(1024, activation='relu')(x)
+    x = Dense(1024, activation='relu')(x)
+    x = Dense(760, activation='relu')(x)
+    x = Dense(8, activation='relu')(x)
+    x = Dense(704, activation='relu')(x)
+    x = Dense(1016, activation='relu')(x)
+    x = Dense(560, activation='relu')(x)
+    x = Dense(classes, activation='softmax')(x)
+    model = Model(img_input, x)
+    optimizer = RMSprop(lr=learning_rate)
+    model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+    model.summary()
+    return model
+
+
+def aisy_ascad_f_id_mlp(input_size=700, learning_rate=1e-5, classes=256):
+    assert classes == 256
+    img_input = Input(shape=(input_size, 1))
+    x = Flatten(name='flatten')(img_input)
+    x = Dense(480, activation='elu')(x)
+    x = Dense(480, activation='elu')(x)
+    x = Dense(classes, activation='softmax')(x)
+    model = Model(img_input, x)
+    optimizer = RMSprop(lr=learning_rate)
+    model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+    model.summary()
+    return model

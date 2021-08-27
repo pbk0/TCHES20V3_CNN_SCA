@@ -47,8 +47,25 @@ You can view experiments precomputed results across different datasets with belo
 + [aes_rd](reports/report_aes_rd.md)
 + [dpav4](reports/report_dpav4.md)
 
+## Some numbers
+
+### ASCAD-fk-desync-0
+
+|Model|Reported|Observed Range|Failed cases|
+|---|---|---|---|
+|eff-cnn|191|280-inf|4%|
+|simplified-eff-cnn|NA|178-391|0%|
+|aisy-hw-mlp|
+|aisy-hw-cnn|
+|aisy-id-mlp|129|
+|aisy-id-cnn|158|
+
 ## Links
 
-[paper](https://tches.iacr.org/index.php/TCHES/article/view/8586/8153)
++ [eff-cnn](https://tches.iacr.org/index.php/TCHES/article/view/8391/7787)
++ [simplified-eff-cnn](https://tches.iacr.org/index.php/TCHES/article/view/8586/8153)
++ [aisy1](https://eprint.iacr.org/2020/1293.pdf)
++ [aisy2](https://eprint.iacr.org/2021/071.pdf)
+
 
 [forked repo](https://github.com/SpikingNeuron/TCHES20V3_CNN_SCA)

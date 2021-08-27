@@ -25,7 +25,7 @@ from src import models
 
 ROOT_DIR = pathlib.Path(__file__).parent / "results"
 NUM_ATTACKS_PER_EXPERIMENT = 100
-NUM_EXPERIMENTS = 100
+NUM_EXPERIMENTS = 5
 
 
 def preprocess_predictions(predictions, all_guess_targets, num_examples, num_guesses) -> np.ndarray:
@@ -152,7 +152,7 @@ class Preprocessor(enum.Enum):
         return _preprocessor
 
     def apply(
-        self, dataset: Dataset
+        self, dataset: Dataset, hw_leakage_model: bool = False
     ) -> t.Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 
         # get dataset
@@ -160,6 +160,15 @@ class Preprocessor(enum.Enum):
 
         # Preprocess the data (see src/preproces.py)
         X_profiling_processed, X_attack_processed = self.preprocess_fn(X_profiling, X_attack)
+
+        # compute hamming weight if requested
+        if hw_leakage_model:
+            Y_profiling = np.vectorize(
+                lambda x: bin(x).count("1")
+            )(Y_profiling).astype(np.uint8)
+            targets = np.vectorize(
+                lambda x: bin(x).count("1")
+            )(targets).astype(np.uint8)
 
         # Automatic split (90/10)
         # Random_state is set to get reproducible splits
@@ -178,6 +187,14 @@ class Model(enum.Enum):
     ascad_cnn_fn = enum.auto()
     eff_cnn = enum.auto()
     simplified_eff_cnn = enum.auto()
+    aisy_hw_mlp = enum.auto()
+    aisy_id_mlp = enum.auto()
+
+    @property
+    def hw_leakage_model(self) -> bool:
+        if self in [self.aisy_hw_mlp]:
+            return True
+        return False
 
     # noinspection DuplicatedCode
     def make_fn(self, dataset: Dataset) -> t.Callable:
@@ -213,6 +230,12 @@ class Model(enum.Enum):
                 return models.noConv1_aes_rd
             elif dataset is Dataset.dpav4:
                 return models.noConv1_dpav4
+        elif self is self.aisy_hw_mlp:
+            if dataset is Dataset.ascad_0:
+                return models.aisy_ascad_f_hw_mlp
+        elif self is self.aisy_id_mlp:
+            if dataset is Dataset.ascad_0:
+                return models.aisy_ascad_f_id_mlp
         else:
             raise Exception(f"Model {self.model} is not supported")
         raise Exception(
@@ -234,18 +257,18 @@ DEFAULT_PARAMS = {
             epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
             preprocessor=Preprocessor.none,
         ),
-        # Model.ascad_cnn: Params(
-        #     epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
-        #     preprocessor=Preprocessor.none,
-        # ),
+        Model.ascad_cnn: Params(
+            epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
+            preprocessor=Preprocessor.none,
+        ),
         Model.ascad_mlp_fn: Params(
             epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
             preprocessor=Preprocessor.feature_standardization,
         ),
-        # Model.ascad_cnn_fn: Params(
-        #     epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
-        #     preprocessor=Preprocessor.feature_standardization,
-        # ),
+        Model.ascad_cnn_fn: Params(
+            epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
+            preprocessor=Preprocessor.feature_standardization,
+        ),
         Model.eff_cnn: Params(
             epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
             preprocessor=Preprocessor.feature_standardization,
@@ -254,24 +277,32 @@ DEFAULT_PARAMS = {
             epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
             preprocessor=Preprocessor.feature_standardization,
         ),
+        Model.aisy_hw_mlp: Params(
+            epochs=50, batch_size=32, learning_rate=1e-5, one_cycle_lr=True,
+            preprocessor=Preprocessor.none,
+        ),
+        Model.aisy_id_mlp: Params(
+            epochs=50, batch_size=32, learning_rate=1e-5, one_cycle_lr=True,
+            preprocessor=Preprocessor.none,
+        ),
     },
     Dataset.ascad_50: {
         Model.ascad_mlp: Params(
             epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
             preprocessor=Preprocessor.none,
         ),
-        # Model.ascad_cnn: Params(
-        #     epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
-        #     preprocessor=Preprocessor.none,
-        # ),
+        Model.ascad_cnn: Params(
+            epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
+            preprocessor=Preprocessor.none,
+        ),
         Model.ascad_mlp_fn: Params(
             epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
             preprocessor=Preprocessor.horizontal_standardization,
         ),
-        # Model.ascad_cnn_fn: Params(
-        #     epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
-        #     preprocessor=Preprocessor.horizontal_standardization,
-        # ),
+        Model.ascad_cnn_fn: Params(
+            epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
+            preprocessor=Preprocessor.horizontal_standardization,
+        ),
         Model.eff_cnn: Params(
             epochs=50, batch_size=256, learning_rate=5e-3, one_cycle_lr=True,
             preprocessor=Preprocessor.horizontal_standardization,
@@ -286,18 +317,18 @@ DEFAULT_PARAMS = {
             epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
             preprocessor=Preprocessor.none,
         ),
-        # Model.ascad_cnn: Params(
-        #     epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
-        #     preprocessor=Preprocessor.none,
-        # ),
+        Model.ascad_cnn: Params(
+            epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
+            preprocessor=Preprocessor.none,
+        ),
         Model.ascad_mlp_fn: Params(
             epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
             preprocessor=Preprocessor.horizontal_standardization,
         ),
-        # Model.ascad_cnn_fn: Params(
-        #     epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
-        #     preprocessor=Preprocessor.horizontal_standardization,
-        # ),
+        Model.ascad_cnn_fn: Params(
+            epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
+            preprocessor=Preprocessor.horizontal_standardization,
+        ),
         Model.eff_cnn: Params(
             epochs=50, batch_size=256, learning_rate=1e-2, one_cycle_lr=True,
             preprocessor=Preprocessor.horizontal_standardization,
@@ -383,7 +414,7 @@ class Experiment(t.NamedTuple):
     def is_done(self) -> bool:
         if self.is_executing:
             return False
-        if self.model_file_path.exists() and self.history_file_path.exists() and self.ranks_file_path.exists():
+        if self.history_file_path.exists() and self.ranks_file_path.exists():
             return True
         else:
             return False
@@ -488,11 +519,17 @@ class Experiment(t.NamedTuple):
         for _id in range(NUM_EXPERIMENTS):
             for _dataset in DEFAULT_PARAMS.keys():
                 for _model in DEFAULT_PARAMS[_dataset].keys():
+                    # skip models from ascad team
+                    if _model in [Model.ascad_mlp, Model.ascad_mlp_fn, Model.ascad_cnn, Model.ascad_cnn_fn]:
+                        continue
                     yield Experiment(
                         dataset=_dataset, model=_model, id=_id, early_stopping=False,
                     )
             for _dataset in DEFAULT_PARAMS.keys():
                 for _model in DEFAULT_PARAMS[_dataset].keys():
+                    # skip models from ascad team
+                    if _model in [Model.ascad_mlp, Model.ascad_mlp_fn, Model.ascad_cnn, Model.ascad_cnn_fn]:
+                        continue
                     yield Experiment(
                         dataset=_dataset, model=_model, id=_id, early_stopping=True,
                     )
@@ -526,7 +563,8 @@ class Experiment(t.NamedTuple):
             # ------------------------------------------------ 05
             # get data
             tracesTrain, tracesVal, labelsTrain, labelsVal, X_attack_processed, targets, key_attack = \
-                _params.preprocessor.apply(_experiment.dataset)
+                _params.preprocessor.apply(
+                    _experiment.dataset, hw_leakage_model=_experiment.model.hw_leakage_model)
 
             # ------------------------------------------------ 06
             # get model
@@ -662,6 +700,11 @@ class Experiment(t.NamedTuple):
             # precompute certain things that are global to models used by this dataset
             for _es in [False, True]:
                 for _model in DEFAULT_PARAMS[_dataset].keys():
+
+                    # skip models from ascad team
+                    if _model in [Model.ascad_mlp, Model.ascad_mlp_fn, Model.ascad_cnn, Model.ascad_cnn_fn]:
+                        continue
+
                     for _id in range(NUM_EXPERIMENTS):
                         _experiment = Experiment(
                             dataset=_dataset, model=_model,
@@ -704,7 +747,7 @@ class Experiment(t.NamedTuple):
                 _table_header = "|"
                 _table_sep = "|"
                 _table_avg_rank = "|"
-                _table_rank_variance = "|"
+                # _table_rank_variance = "|"
                 _table_train_loss = "|"
                 _table_val_loss = "|"
 
@@ -720,6 +763,11 @@ class Experiment(t.NamedTuple):
                 _violin_y_max = 0
 
                 for _model in DEFAULT_PARAMS[_dataset].keys():
+
+                    # skip models from ascad team
+                    if _model in [Model.ascad_mlp, Model.ascad_mlp_fn, Model.ascad_cnn, Model.ascad_cnn_fn]:
+                        continue
+
                     _total_experiments = 0
                     _failed_experiments = 0
                     _min_traces_to_converge = np.inf
@@ -733,12 +781,12 @@ class Experiment(t.NamedTuple):
                                 text=f"Average Rank: {_fig_name}")
                         )
                     )
-                    _rank_variance_fig = go.Figure(
-                        layout=go.Layout(
-                            title=go.layout.Title(
-                                text=f"Rank Variance: {_fig_name}")
-                        )
-                    )
+                    # _rank_variance_fig = go.Figure(
+                    #     layout=go.Layout(
+                    #         title=go.layout.Title(
+                    #             text=f"Rank Variance: {_fig_name}")
+                    #     )
+                    # )
                     _train_loss_fig = go.Figure(
                         layout=go.Layout(
                             title=go.layout.Title(text=f"Train Loss: {_fig_name}")
@@ -797,15 +845,15 @@ class Experiment(t.NamedTuple):
                                 showlegend=False,
                             )
                         )
-                        _rank_variance_fig.add_trace(
-                            go.Scatter(
-                                x=np.arange(_rank_plot_until),
-                                y=_rank_variance[:_rank_plot_until],
-                                mode='lines',
-                                name=f"exp_{_id:03d}",
-                                showlegend=False,
-                            )
-                        )
+                        # _rank_variance_fig.add_trace(
+                        #     go.Scatter(
+                        #         x=np.arange(_rank_plot_until),
+                        #         y=_rank_variance[:_rank_plot_until],
+                        #         mode='lines',
+                        #         name=f"exp_{_id:03d}",
+                        #         showlegend=False,
+                        #     )
+                        # )
                         _train_loss_fig.add_trace(
                             go.Scatter(
                                 x=np.arange(len(_train_loss)),
@@ -827,17 +875,17 @@ class Experiment(t.NamedTuple):
 
                     # update y range for some figures
                     _avg_rank_fig.update_layout(yaxis_range=[_avg_rank_y_min, _avg_rank_y_max])
-                    _rank_variance_fig.update_layout(yaxis_range=[_rank_variance_y_min, _rank_variance_y_max])
+                    # _rank_variance_fig.update_layout(yaxis_range=[_rank_variance_y_min, _rank_variance_y_max])
                     _train_loss_fig.update_layout(yaxis_range=[_train_loss_y_min, _train_loss_y_max])
                     _val_loss_fig.update_layout(yaxis_range=[_val_loss_y_min, _val_loss_y_max])
 
                     # save figures
                     _plot_relative_path = f"../plots/{_dataset.name}/{_model.name}/{'es' if _es else 'no_es'}"
-                    _plot_dir = ROOT_DIR.parent / _plot_relative_path
+                    _plot_dir = ROOT_DIR / _plot_relative_path
                     if not _plot_dir.exists():
                         _plot_dir.mkdir(parents=True)
                     _avg_rank_fig.write_image((_plot_dir / f"average_rank.svg").as_posix())
-                    _rank_variance_fig.write_image((_plot_dir / f"rank_variance.svg").as_posix())
+                    # _rank_variance_fig.write_image((_plot_dir / f"rank_variance.svg").as_posix())
                     _train_loss_fig.write_image((_plot_dir / f"train_loss.svg").as_posix())
                     _val_loss_fig.write_image((_plot_dir / f"val_loss.svg").as_posix())
 
@@ -851,7 +899,7 @@ class Experiment(t.NamedTuple):
                     else:
                         _failure_percent = 0.
                         _table_success_status = f"<span style='color:green'> " \
-                                                f"**ALL PASSES** " \
+                                                f"**ALL PASSED** " \
                                                 f"</span>"
                     _violin_min_traces_to_converge[_model.name] = _min_traces_to_converge
                     _violin_max_traces_to_converge[_model.name] = _max_traces_to_converge
@@ -859,7 +907,7 @@ class Experiment(t.NamedTuple):
                     _table_header += f"{_model.name}<br>{_table_success_status}|"
                     _table_sep += "---|"
                     _table_avg_rank += f"![Average Rank]({_plot_relative_path}/average_rank.svg)|"
-                    _table_rank_variance += f"![Rank Variance]({_plot_relative_path}/rank_variance.svg)|"
+                    # _table_rank_variance += f"![Rank Variance]({_plot_relative_path}/rank_variance.svg)|"
                     _table_train_loss += f"![Train Loss]({_plot_relative_path}/train_loss.svg)|"
                     _table_val_loss += f"![Validation Loss]({_plot_relative_path}/val_loss.svg)|"
 
@@ -896,7 +944,7 @@ class Experiment(t.NamedTuple):
                     )
                 _violin_relative_path = \
                     f"../plots/{_dataset.name}/{'violin_es.svg' if _es else 'violin_no_es.svg'}"
-                _violin_fig_path = ROOT_DIR.parent / _violin_relative_path
+                _violin_fig_path = ROOT_DIR / _violin_relative_path
                 _violin_fig.write_image(_violin_fig_path.as_posix())
 
                 # make table
@@ -905,7 +953,8 @@ class Experiment(t.NamedTuple):
                     f"({_violin_relative_path})",
                     "",
                     _table_header, _table_sep,
-                    _table_avg_rank, _table_rank_variance,
+                    _table_avg_rank,
+                    # _table_rank_variance,
                     _table_train_loss, _table_val_loss
                 ]
 
