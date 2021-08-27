@@ -25,7 +25,7 @@ from src import models
 
 ROOT_DIR = pathlib.Path(__file__).parent / "results"
 NUM_ATTACKS_PER_EXPERIMENT = 100
-NUM_EXPERIMENTS = 5
+NUM_EXPERIMENTS = 100
 
 
 def preprocess_predictions(predictions, all_guess_targets, num_examples, num_guesses) -> np.ndarray:
@@ -277,14 +277,14 @@ DEFAULT_PARAMS = {
             epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
             preprocessor=Preprocessor.feature_standardization,
         ),
-        Model.aisy_hw_mlp: Params(
-            epochs=50, batch_size=32, learning_rate=1e-5, one_cycle_lr=True,
-            preprocessor=Preprocessor.none,
-        ),
-        Model.aisy_id_mlp: Params(
-            epochs=50, batch_size=32, learning_rate=1e-5, one_cycle_lr=True,
-            preprocessor=Preprocessor.none,
-        ),
+        # Model.aisy_hw_mlp: Params(
+        #     epochs=50, batch_size=32, learning_rate=1e-5, one_cycle_lr=True,
+        #     preprocessor=Preprocessor.none,
+        # ),
+        # Model.aisy_id_mlp: Params(
+        #     epochs=50, batch_size=32, learning_rate=1e-5, one_cycle_lr=True,
+        #     preprocessor=Preprocessor.none,
+        # ),
     },
     Dataset.ascad_50: {
         Model.ascad_mlp: Params(
@@ -525,14 +525,14 @@ class Experiment(t.NamedTuple):
                     yield Experiment(
                         dataset=_dataset, model=_model, id=_id, early_stopping=False,
                     )
-            for _dataset in DEFAULT_PARAMS.keys():
-                for _model in DEFAULT_PARAMS[_dataset].keys():
-                    # skip models from ascad team
-                    if _model in [Model.ascad_mlp, Model.ascad_mlp_fn, Model.ascad_cnn, Model.ascad_cnn_fn]:
-                        continue
-                    yield Experiment(
-                        dataset=_dataset, model=_model, id=_id, early_stopping=True,
-                    )
+            # for _dataset in DEFAULT_PARAMS.keys():
+            #     for _model in DEFAULT_PARAMS[_dataset].keys():
+            #         # skip models from ascad team
+            #         if _model in [Model.ascad_mlp, Model.ascad_mlp_fn, Model.ascad_cnn, Model.ascad_cnn_fn]:
+            #             continue
+            #         yield Experiment(
+            #             dataset=_dataset, model=_model, id=_id, early_stopping=True,
+            #         )
 
     @classmethod
     def do_it(cls):
@@ -604,9 +604,10 @@ class Experiment(t.NamedTuple):
                 callbacks = [checkpoint, lr_manager]
             else:
                 callbacks = [checkpoint]
+            _num_classes = 9 if _experiment.model.hw_leakage_model else 256
             history = _model.fit(
-                x=tracesTrain_shaped, y=to_categorical(labelsTrain, num_classes=256),
-                validation_data=(tracesVal_shaped, to_categorical(labelsVal, num_classes=256)),
+                x=tracesTrain_shaped, y=to_categorical(labelsTrain, num_classes=_num_classes),
+                validation_data=(tracesVal_shaped, to_categorical(labelsVal, num_classes=_num_classes)),
                 batch_size=_params.batch_size, verbose=1, epochs=_params.epochs, callbacks=callbacks)
 
             # ------------------------------------------------ 09
@@ -698,7 +699,8 @@ class Experiment(t.NamedTuple):
             _val_loss_y_min = np.inf
             _val_loss_y_max = 0.
             # precompute certain things that are global to models used by this dataset
-            for _es in [False, True]:
+            # for _es in [False, True]:
+            for _es in [False, ]:
                 for _model in DEFAULT_PARAMS[_dataset].keys():
 
                     # skip models from ascad team
@@ -732,16 +734,17 @@ class Experiment(t.NamedTuple):
                         _val_loss_y_max = max(_val_loss_y_max, max(_val_loss))
 
             # ----------------------------------------------- 02.02
-            for _es in [False, True]:
+            # for _es in [False, True]:
+            for _es in [False, ]:
 
-                if _es:
-                    _report_md_lines += [
-                        f"## Modified original to work with early stopping", ""
-                    ]
-                else:
-                    _report_md_lines += [
-                        f"## Original (i.e. without early stopping)", ""
-                    ]
+                # if _es:
+                #     _report_md_lines += [
+                #         f"## Modified original to work with early stopping", ""
+                #     ]
+                # else:
+                #     _report_md_lines += [
+                #         f"## Original (i.e. without early stopping)", ""
+                #     ]
 
                 # lines for table
                 _table_header = "|"
