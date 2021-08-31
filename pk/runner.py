@@ -28,7 +28,7 @@ RESULTS_DIR = ROOT_DIR / "results"
 PLOTS_DIR = ROOT_DIR / "plots"
 REPORTS_DIR = ROOT_DIR / "reports"
 NUM_ATTACKS_PER_EXPERIMENT = 100
-NUM_EXPERIMENTS = 2
+NUM_EXPERIMENTS = 30
 
 
 def preprocess_predictions(predictions, all_guess_targets, num_examples, num_guesses) -> np.ndarray:
