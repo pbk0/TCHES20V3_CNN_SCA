@@ -28,7 +28,7 @@ RESULTS_DIR = ROOT_DIR / "results"
 PLOTS_DIR = ROOT_DIR / "plots"
 REPORTS_DIR = ROOT_DIR / "reports"
 NUM_ATTACKS_PER_EXPERIMENT = 100
-NUM_EXPERIMENTS = 1
+NUM_EXPERIMENTS = 30
 
 
 def preprocess_predictions(predictions, all_guess_targets, num_examples, num_guesses) -> np.ndarray:
@@ -92,6 +92,7 @@ def compute_ranks(predictions, all_guess_targets, correct_key, num_attacks) -> n
 
 class Dataset(enum.Enum):
     ascad_0 = enum.auto()
+    ascad_r_0 = enum.auto()
     ascad_50 = enum.auto()
     ascad_100 = enum.auto()
     aes_hd = enum.auto()
@@ -102,6 +103,8 @@ class Dataset(enum.Enum):
     def rank_plot_until(self) -> int:
         if self in [self.ascad_0, self.ascad_50, self.ascad_100, ]:
             return 250
+        if self in [self.ascad_r_0, ]:
+            return 1000
         elif self is self.aes_hd:
             return 1200
         elif self is self.aes_rd:
@@ -118,6 +121,8 @@ class Dataset(enum.Enum):
         # Load a dataset (see src/dataLoaders.py)
         if self is self.ascad_0:
             _data = dataLoaders.load_ascad(f'./../datasets/ASCAD_dataset/ASCAD.h5')
+        elif self is self.ascad_r_0:
+            _data = dataLoaders.load_ascad(f'./../datasets/ascad-variable.h5')
         elif self is self.ascad_50:
             _data = dataLoaders.load_ascad(f'./../datasets/ASCAD_dataset/ASCAD_desync50.h5')
         elif self is self.ascad_100:
@@ -236,9 +241,13 @@ class Model(enum.Enum):
         elif self is self.aisy_hw_mlp:
             if dataset is Dataset.ascad_0:
                 return models.aisy_ascad_f_hw_mlp
+            if dataset is Dataset.ascad_r_0:
+                return models.aisy_ascad_r_hw_mlp
         elif self is self.aisy_id_mlp:
             if dataset is Dataset.ascad_0:
                 return models.aisy_ascad_f_id_mlp
+            if dataset is Dataset.ascad_r_0:
+                return models.aisy_ascad_r_id_mlp
         else:
             raise Exception(f"Model {self.model} is not supported")
         raise Exception(
@@ -261,32 +270,32 @@ class ExperimentType(enum.Enum):
 
 
 MODELS_TO_TRY = [
-    Model.eff_cnn, Model.simplified_eff_cnn, # Model.aisy_id_mlp
+    Model.eff_cnn, Model.simplified_eff_cnn, Model.aisy_id_mlp, Model.aisy_hw_mlp,
 ]
 DATASETS_TO_TRY = [
     Dataset.ascad_0,
 ]
 EXPERIMENT_TYPES_TO_TRY = [
-    ExperimentType.original, ExperimentType.early_stopping, ExperimentType.over_fit,
+    ExperimentType.original,  # ExperimentType.early_stopping, ExperimentType.over_fit,
 ]
 DEFAULT_PARAMS = {
     Dataset.ascad_0: {
-        Model.ascad_mlp: Params(
-            epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
-            preprocessor=Preprocessor.none,
-        ),
-        Model.ascad_cnn: Params(
-            epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
-            preprocessor=Preprocessor.none,
-        ),
-        Model.ascad_mlp_fn: Params(
-            epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
-            preprocessor=Preprocessor.feature_standardization,
-        ),
-        Model.ascad_cnn_fn: Params(
-            epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
-            preprocessor=Preprocessor.feature_standardization,
-        ),
+        # Model.ascad_mlp: Params(
+        #     epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
+        #     preprocessor=Preprocessor.none,
+        # ),
+        # Model.ascad_cnn: Params(
+        #     epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
+        #     preprocessor=Preprocessor.none,
+        # ),
+        # Model.ascad_mlp_fn: Params(
+        #     epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
+        #     preprocessor=Preprocessor.feature_standardization,
+        # ),
+        # Model.ascad_cnn_fn: Params(
+        #     epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
+        #     preprocessor=Preprocessor.feature_standardization,
+        # ),
         Model.eff_cnn: Params(
             epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
             preprocessor=Preprocessor.feature_standardization,
@@ -295,14 +304,24 @@ DEFAULT_PARAMS = {
             epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
             preprocessor=Preprocessor.feature_standardization,
         ),
-        # Model.aisy_hw_mlp: Params(
-        #     epochs=50, batch_size=32, learning_rate=1e-5, one_cycle_lr=False,
-        #     preprocessor=Preprocessor.none,
-        # ),
-        # Model.aisy_id_mlp: Params(
-        #     epochs=50, batch_size=32, learning_rate=1e-5, one_cycle_lr=False,
-        #     preprocessor=Preprocessor.none,
-        # ),
+        Model.aisy_hw_mlp: Params(
+            epochs=10, batch_size=32, learning_rate=1e-5, one_cycle_lr=False,
+            preprocessor=Preprocessor.feature_standardization,
+        ),
+        Model.aisy_id_mlp: Params(
+            epochs=10, batch_size=32, learning_rate=1e-5, one_cycle_lr=False,
+            preprocessor=Preprocessor.feature_standardization,
+        ),
+    },
+    Dataset.ascad_r_0: {
+        Model.aisy_hw_mlp: Params(
+            epochs=10, batch_size=32, learning_rate=1e-5, one_cycle_lr=False,
+            preprocessor=Preprocessor.feature_standardization,
+        ),
+        Model.aisy_id_mlp: Params(
+            epochs=10, batch_size=32, learning_rate=1e-5, one_cycle_lr=False,
+            preprocessor=Preprocessor.feature_standardization,
+        ),
     },
     Dataset.ascad_50: {
         Model.ascad_mlp: Params(

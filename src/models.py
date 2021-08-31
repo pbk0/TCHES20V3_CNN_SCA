@@ -373,17 +373,15 @@ def noConv1_aes_hd(input_size=1250,learning_rate=0.00001,classes=256):
     return model
 
 
-def aisy_ascad_f_hw_mlp(input_size=700, learning_rate=1e-5, classes=9):
+# HW_BO_ACC_200Trails
+def aisy_ascad_f_hw_mlp(input_size=700, learning_rate=5e-4, classes=9):
     assert classes == 9
     img_input = Input(shape=(input_size, 1))
     x = Flatten(name='flatten')(img_input)
-    x = Dense(1024, activation='relu')(x)
-    x = Dense(1024, activation='relu')(x)
-    x = Dense(760, activation='relu')(x)
-    x = Dense(8, activation='relu')(x)
-    x = Dense(704, activation='relu')(x)
-    x = Dense(1016, activation='relu')(x)
-    x = Dense(560, activation='relu')(x)
+    x = Dense(352, activation='relu')(x)
+    x = Dense(768, activation='relu')(x)
+    x = Dense(736, activation='relu')(x)
+    x = Dense(416, activation='relu')(x)
     x = Dense(classes, activation='softmax')(x)
     model = Model(img_input, x)
     optimizer = RMSprop(lr=learning_rate)
@@ -392,12 +390,56 @@ def aisy_ascad_f_hw_mlp(input_size=700, learning_rate=1e-5, classes=9):
     return model
 
 
-def aisy_ascad_f_id_mlp(input_size=700, learning_rate=1e-5, classes=256):
+# ID_BO_ACC_200Trails
+def aisy_ascad_f_id_mlp(input_size=700, learning_rate=5e-4, classes=256):
     assert classes == 256
     img_input = Input(shape=(input_size, 1))
     x = Flatten(name='flatten')(img_input)
-    x = Dense(480, activation='elu')(x)
-    x = Dense(480, activation='elu')(x)
+    x = Dense(224, activation='elu')(x)
+    x = Dense(392, activation='elu')(x)
+    x = Dense(344, activation='elu')(x)
+    x = Dense(224, activation='elu')(x)
+    x = Dense(304, activation='elu')(x)
+    x = Dense(classes, activation='softmax')(x)
+    model = Model(img_input, x)
+    optimizer = RMSprop(lr=learning_rate)
+    model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+    model.summary()
+    return model
+
+
+# HW_RA_ACC_200Trails
+def aisy_ascad_r_hw_mlp(input_size=700, learning_rate=5e-4, classes=256):
+    assert classes == 256
+    img_input = Input(shape=(input_size, 1))
+    x = Flatten(name='flatten')(img_input)
+    x = Dense(200, activation='elu')(x)
+    x = Dense(304, activation='elu')(x)
+    x = Dense(832, activation='elu')(x)
+    x = Dense(176, activation='elu')(x)
+    x = Dense(872, activation='elu')(x)
+    x = Dense(608, activation='elu')(x)
+    x = Dense(512, activation='elu')(x)
+    x = Dense(classes, activation='softmax')(x)
+    model = Model(img_input, x)
+    optimizer = RMSprop(lr=learning_rate)
+    model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+    model.summary()
+    return model
+
+
+# ID_RA_Key_Rank_200Trails
+def aisy_ascad_r_id_mlp(input_size=700, learning_rate=5e-4, classes=256):
+    assert classes == 256
+    img_input = Input(shape=(input_size, 1))
+    x = Flatten(name='flatten')(img_input)
+    x = Dense(256, activation='elu')(x)
+    x = Dense(296, activation='elu')(x)
+    x = Dense(840, activation='elu')(x)
+    x = Dense(280, activation='elu')(x)
+    x = Dense(568, activation='elu')(x)
+    x = Dense(672, activation='elu')(x)
+    x = Dense(256, activation='elu')(x)
     x = Dense(classes, activation='softmax')(x)
     model = Model(img_input, x)
     optimizer = RMSprop(lr=learning_rate)
