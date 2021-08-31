@@ -28,7 +28,7 @@ RESULTS_DIR = ROOT_DIR / "results"
 PLOTS_DIR = ROOT_DIR / "plots"
 REPORTS_DIR = ROOT_DIR / "reports"
 NUM_ATTACKS_PER_EXPERIMENT = 100
-NUM_EXPERIMENTS = 30
+NUM_EXPERIMENTS = 1
 
 
 def preprocess_predictions(predictions, all_guess_targets, num_examples, num_guesses) -> np.ndarray:
@@ -194,13 +194,14 @@ class Model(enum.Enum):
     ascad_mlp_fn = enum.auto()
     ascad_cnn_fn = enum.auto()
     eff_cnn = enum.auto()
-    simplified_eff_cnn = enum.auto()
+    s_eff_cnn_id = enum.auto()
+    s_eff_cnn_hw = enum.auto()
     aisy_hw_mlp = enum.auto()
     aisy_id_mlp = enum.auto()
 
     @property
     def hw_leakage_model(self) -> bool:
-        if self in [self.aisy_hw_mlp]:
+        if self in [self.aisy_hw_mlp, self.s_eff_cnn_hw]:
             return True
         return False
 
@@ -225,7 +226,7 @@ class Model(enum.Enum):
                 return models.zaid_aes_rd
             elif dataset is Dataset.dpav4:
                 return models.zaid_dpav4
-        elif self is self.simplified_eff_cnn:
+        elif self is self.s_eff_cnn_id:
             if dataset is Dataset.ascad_0:
                 return models.noConv1_ascad_desync_0
             elif dataset is Dataset.ascad_50:
@@ -238,6 +239,9 @@ class Model(enum.Enum):
                 return models.noConv1_aes_rd
             elif dataset is Dataset.dpav4:
                 return models.noConv1_dpav4
+        elif self is self.s_eff_cnn_hw:
+            if dataset is Dataset.ascad_0:
+                return models.noConv1_ascad_desync_0_hw
         elif self is self.aisy_hw_mlp:
             if dataset is Dataset.ascad_0:
                 return models.aisy_ascad_f_hw_mlp
@@ -270,7 +274,7 @@ class ExperimentType(enum.Enum):
 
 
 MODELS_TO_TRY = [
-    Model.eff_cnn, Model.simplified_eff_cnn, Model.aisy_id_mlp, Model.aisy_hw_mlp,
+    Model.s_eff_cnn_hw, Model.s_eff_cnn_id, Model.aisy_id_mlp, Model.aisy_hw_mlp,
 ]
 DATASETS_TO_TRY = [
     Dataset.ascad_0, Dataset.ascad_r_0,
@@ -300,7 +304,11 @@ DEFAULT_PARAMS = {
             epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
             preprocessor=Preprocessor.feature_standardization,
         ),
-        Model.simplified_eff_cnn: Params(
+        Model.s_eff_cnn_id: Params(
+            epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
+            preprocessor=Preprocessor.feature_standardization,
+        ),
+        Model.s_eff_cnn_hw: Params(
             epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
             preprocessor=Preprocessor.feature_standardization,
         ),
@@ -344,7 +352,7 @@ DEFAULT_PARAMS = {
             epochs=50, batch_size=256, learning_rate=5e-3, one_cycle_lr=True,
             preprocessor=Preprocessor.horizontal_standardization,
         ),
-        Model.simplified_eff_cnn: Params(
+        Model.s_eff_cnn_id: Params(
             epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
             preprocessor=Preprocessor.horizontal_standardization,
         ),
@@ -370,7 +378,7 @@ DEFAULT_PARAMS = {
             epochs=50, batch_size=256, learning_rate=1e-2, one_cycle_lr=True,
             preprocessor=Preprocessor.horizontal_standardization,
         ),
-        Model.simplified_eff_cnn: Params(
+        Model.s_eff_cnn_id: Params(
             epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
             preprocessor=Preprocessor.horizontal_standardization,
         ),
@@ -380,7 +388,7 @@ DEFAULT_PARAMS = {
             epochs=20, batch_size=256, learning_rate=1e-3, one_cycle_lr=False,
             preprocessor=Preprocessor.feature_standardization,
         ),
-        Model.simplified_eff_cnn: Params(
+        Model.s_eff_cnn_id: Params(
             epochs=20, batch_size=256, learning_rate=1e-3, one_cycle_lr=False,
             preprocessor=Preprocessor.feature_standardization,
         ),
@@ -390,7 +398,7 @@ DEFAULT_PARAMS = {
             epochs=50, batch_size=50, learning_rate=10e-3, one_cycle_lr=True,
             preprocessor=Preprocessor.horizontal_standardization,
         ),
-        Model.simplified_eff_cnn: Params(
+        Model.s_eff_cnn_id: Params(
             epochs=50, batch_size=50, learning_rate=10e-3, one_cycle_lr=True,
             preprocessor=Preprocessor.horizontal_standardization,
         ),
@@ -400,7 +408,7 @@ DEFAULT_PARAMS = {
             epochs=50, batch_size=50, learning_rate=1e-3, one_cycle_lr=False,
             preprocessor=Preprocessor.feature_standardization,
         ),
-        Model.simplified_eff_cnn: Params(
+        Model.s_eff_cnn_id: Params(
             epochs=50, batch_size=50, learning_rate=1e-3, one_cycle_lr=False,
             preprocessor=Preprocessor.feature_standardization,
         ),

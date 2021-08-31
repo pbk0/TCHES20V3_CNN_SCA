@@ -269,6 +269,22 @@ def noConv1_ascad_desync_0(input_size=700,learning_rate=0.00001,classes=256):
     return model
 
 
+def noConv1_ascad_desync_0_hw(input_size=700,learning_rate=0.00001,classes=9):
+    assert classes == 9
+    trace_input = Input(shape=(input_size,1))
+    x = AveragePooling1D(2, strides=2, name='initial_pool')(trace_input)
+    x = Flatten(name='flatten')(x)
+
+    x = Dense(10, activation='selu', name='fc1')(x)
+    x = Dense(10, activation='selu', name='fc2')(x)
+    x = Dense(classes, activation='softmax', name='predictions')(x)
+
+    model = Model(trace_input, x, name='noConv1_ascad_desync_0')
+    optimizer = Adam(lr=learning_rate)
+    model.compile(loss='categorical_crossentropy',optimizer=optimizer, metrics=['accuracy'])
+    return model
+
+
 def noConv1_ascad_desync_50(input_size=700,learning_rate=0.00001,classes=256):
     trace_input = Input(shape=(input_size,1))
     x = AveragePooling1D(2, strides=2, name='initial_pool')(trace_input)
