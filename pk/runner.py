@@ -28,7 +28,7 @@ RESULTS_DIR = ROOT_DIR / "results"
 PLOTS_DIR = ROOT_DIR / "plots"
 REPORTS_DIR = ROOT_DIR / "reports"
 NUM_ATTACKS_PER_EXPERIMENT = 100
-NUM_EXPERIMENTS = 30
+NUM_EXPERIMENTS = 2
 
 
 def preprocess_predictions(predictions, all_guess_targets, num_examples, num_guesses) -> np.ndarray:
@@ -273,7 +273,7 @@ MODELS_TO_TRY = [
     Model.eff_cnn, Model.simplified_eff_cnn, Model.aisy_id_mlp, Model.aisy_hw_mlp,
 ]
 DATASETS_TO_TRY = [
-    Dataset.ascad_0,
+    Dataset.ascad_0, Dataset.ascad_r_0,
 ]
 EXPERIMENT_TYPES_TO_TRY = [
     ExperimentType.original,  # ExperimentType.early_stopping, ExperimentType.over_fit,
