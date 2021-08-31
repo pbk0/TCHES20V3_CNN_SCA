@@ -1,6 +1,6 @@
 import sys
 import zipfile
-
+import itertools
 import pandas as pd
 
 sys.path.append("..")
@@ -23,9 +23,12 @@ from src import dataLoaders
 from src import preproces
 from src import models
 
-ROOT_DIR = pathlib.Path(__file__).parent / "results"
+ROOT_DIR = pathlib.Path(__file__).parent
+RESULTS_DIR = ROOT_DIR / "results"
+PLOTS_DIR = ROOT_DIR / "plots"
+REPORTS_DIR = ROOT_DIR / "reports"
 NUM_ATTACKS_PER_EXPERIMENT = 100
-NUM_EXPERIMENTS = 100
+NUM_EXPERIMENTS = 1
 
 
 def preprocess_predictions(predictions, all_guess_targets, num_examples, num_guesses) -> np.ndarray:
@@ -251,6 +254,21 @@ class Params(t.NamedTuple):
     preprocessor: Preprocessor
 
 
+class ExperimentType(enum.Enum):
+    original = enum.auto()
+    early_stopping = enum.auto()
+    over_fit = enum.auto()
+
+
+MODELS_TO_TRY = [
+    Model.eff_cnn, Model.simplified_eff_cnn, # Model.aisy_id_mlp
+]
+DATASETS_TO_TRY = [
+    Dataset.ascad_0,
+]
+EXPERIMENT_TYPES_TO_TRY = [
+    ExperimentType.original, ExperimentType.early_stopping, ExperimentType.over_fit,
+]
 DEFAULT_PARAMS = {
     Dataset.ascad_0: {
         Model.ascad_mlp: Params(
@@ -278,11 +296,11 @@ DEFAULT_PARAMS = {
             preprocessor=Preprocessor.feature_standardization,
         ),
         # Model.aisy_hw_mlp: Params(
-        #     epochs=50, batch_size=32, learning_rate=1e-5, one_cycle_lr=True,
+        #     epochs=50, batch_size=32, learning_rate=1e-5, one_cycle_lr=False,
         #     preprocessor=Preprocessor.none,
         # ),
         # Model.aisy_id_mlp: Params(
-        #     epochs=50, batch_size=32, learning_rate=1e-5, one_cycle_lr=True,
+        #     epochs=50, batch_size=32, learning_rate=1e-5, one_cycle_lr=False,
         #     preprocessor=Preprocessor.none,
         # ),
     },
@@ -375,20 +393,15 @@ class Experiment(t.NamedTuple):
     id: int
     dataset: Dataset
     model: Model
-    early_stopping: bool
+    type: ExperimentType
 
     @property
     def name(self) -> str:
-        _es_no_es = "es" if self.early_stopping else "no_es"
-        return f"{self.dataset.name}-{self.model.name}-{_es_no_es}[{self.id}]"
+        return f"{self.type.name}-{self.dataset.name}-{self.model.name}-[{self.id}]"
 
     @property
     def store_dir(self) -> pathlib.Path:
-        _es_no_es = "es" if self.early_stopping else "no_es"
-        _ret = ROOT_DIR / self.dataset.name / self.model.name / _es_no_es / str(self.id)
-        if not _ret.exists():
-            _ret.mkdir(parents=True)
-        return _ret
+        return RESULTS_DIR / self.type.name / self.dataset.name / self.model.name / str(self.id)
 
     @property
     def model_file_path(self) -> pathlib.Path:
@@ -492,47 +505,42 @@ class Experiment(t.NamedTuple):
             self.store_dir.rmdir()
 
     @classmethod
-    def get_existing_experiments_on_disk(cls) -> t.List["Experiment"]:
-        _experiments_on_disk = []
-        for _dataset_dir in ROOT_DIR.iterdir():
-            for _model_dir in _dataset_dir.iterdir():
-                for _es_no_es_dir in _model_dir.iterdir():
-                    if _es_no_es_dir.name == "es":
-                        _es_no_es = True
-                    elif _es_no_es_dir.name == "no_es":
-                        _es_no_es = False
-                    else:
-                        raise Exception(f"Unexpected values {_es_no_es_dir.name} for _es_no_es")
-                    for _id_dir in _es_no_es_dir.iterdir():
-                        _experiments_on_disk.append(
-                            Experiment(
-                                dataset=Dataset[_dataset_dir.name],
-                                model=Model[_model_dir.name],
-                                id=int(_id_dir.name),
-                                early_stopping=_es_no_es,
-                            )
+    def get_existing_experiments_on_disk(
+        cls,
+        experiment_type: ExperimentType = None,
+        dataset: Dataset = None,
+        model: Model = None,
+    ) -> t.List["Experiment"]:
+        _ret = []
+        for _type_dir in RESULTS_DIR.iterdir():
+            if experiment_type != ExperimentType[_type_dir.name]:
+                continue
+            for _dataset_dir in _type_dir.iterdir():
+                if dataset != Dataset[_dataset_dir.name]:
+                    continue
+                for _model_dir in _dataset_dir.iterdir():
+                    if model != Model[_model_dir.name]:
+                        continue
+                    for _id_dir in _model_dir.iterdir():
+                        _exp = Experiment(
+                            dataset=Dataset[_dataset_dir.name],
+                            model=Model[_model_dir.name],
+                            id=int(_id_dir.name),
+                            type=ExperimentType[_type_dir.name],
                         )
-        return _experiments_on_disk
+                        if _exp.is_done:
+                            _ret.append(_exp)
+        return _ret
 
     @classmethod
     def experiment_generator(cls) -> t.Iterable["Experiment"]:
-        for _id in range(NUM_EXPERIMENTS):
-            for _dataset in DEFAULT_PARAMS.keys():
-                for _model in DEFAULT_PARAMS[_dataset].keys():
-                    # skip models from ascad team
-                    if _model in [Model.ascad_mlp, Model.ascad_mlp_fn, Model.ascad_cnn, Model.ascad_cnn_fn]:
-                        continue
-                    yield Experiment(
-                        dataset=_dataset, model=_model, id=_id, early_stopping=False,
-                    )
-            # for _dataset in DEFAULT_PARAMS.keys():
-            #     for _model in DEFAULT_PARAMS[_dataset].keys():
-            #         # skip models from ascad team
-            #         if _model in [Model.ascad_mlp, Model.ascad_mlp_fn, Model.ascad_cnn, Model.ascad_cnn_fn]:
-            #             continue
-            #         yield Experiment(
-            #             dataset=_dataset, model=_model, id=_id, early_stopping=True,
-            #         )
+        for _type in EXPERIMENT_TYPES_TO_TRY:
+            for _dataset in DATASETS_TO_TRY:
+                for _model in MODELS_TO_TRY:
+                    for _id in range(NUM_EXPERIMENTS):
+                        yield Experiment(
+                            id=_id, dataset=_dataset, model=_model, type=_type,
+                        )
 
     @classmethod
     def do_it(cls):
@@ -554,6 +562,8 @@ class Experiment(t.NamedTuple):
             # ------------------------------------------------ 03
             # create a semaphore for other threads to detect
             print(f" > {_experiment.name} ... will train and rank ...")
+            if not _experiment.store_dir.exists():
+                _experiment.store_dir.mkdir(parents=True)
             _experiment.is_executing_file_path.touch()
 
             # ------------------------------------------------ 04
@@ -565,6 +575,12 @@ class Experiment(t.NamedTuple):
             tracesTrain, tracesVal, labelsTrain, labelsVal, X_attack_processed, targets, key_attack = \
                 _params.preprocessor.apply(
                     _experiment.dataset, hw_leakage_model=_experiment.model.hw_leakage_model)
+
+            # ------------------------------------------------ 06
+            # shrink dataset so that it can over-fit easily
+            if _experiment.type is ExperimentType.over_fit:
+                tracesTrain = tracesTrain[:len(tracesTrain)//3]
+                labelsTrain = labelsTrain[:len(labelsTrain)//3]
 
             # ------------------------------------------------ 06
             # get model
@@ -589,7 +605,7 @@ class Experiment(t.NamedTuple):
             # ------------------------------------------------ 08
             # train the model
             print(f" > {_experiment.name} ... training ...")
-            if _experiment.early_stopping:
+            if _experiment.type is ExperimentType.early_stopping:
                 checkpoint = ModelCheckpoint(
                     _experiment.model_file_path.as_posix(),
                     monitor='val_loss', mode='min', verbose=1, save_best_only=True)
@@ -665,30 +681,41 @@ class Experiment(t.NamedTuple):
     def report_it(cls):
 
         # --------------------------------------------------- 01
-        # wipe any stale results
-        # cls.wipe_it()
-
-        # --------------------------------------------------- 02
         # loop over - no early stopping
         print("Generating report ...")
-        _reports_dir = ROOT_DIR.parent / "reports"
-        if not _reports_dir.exists():
-            _reports_dir.mkdir()
-        _base_report_md_file_path = ROOT_DIR.parent / "reports.md"
-        _base_report_md_lines = [
-            f"# Detailed Analysis", ""
-        ]
-        for _dataset in DEFAULT_PARAMS.keys():
-            print(f"Generating report for {_dataset.name}")
+        _report_df = pd.DataFrame()
+        _violin_fig_data = {}
+
+        # --------------------------------------------------- 02
+        # loop over
+        for _type, _dataset, _model in itertools.product(
+            EXPERIMENT_TYPES_TO_TRY,
+            DATASETS_TO_TRY,
+            MODELS_TO_TRY,
+        ):
             # ----------------------------------------------- 02.01
-            # report md file
-            _report_md_file_path = _reports_dir / f"report_{_dataset.name}.md"
-            _report_md_lines = [
-                f"# Dataset {_dataset.name}: Analysis of {NUM_EXPERIMENTS} experiments", ""
-            ]
-            _base_report_md_lines += [
-                f"## [{_dataset.name}]({_report_md_file_path.as_posix()})"
-            ]
+            # get experiments
+            _experiments = cls.get_existing_experiments_on_disk(
+                experiment_type=_type, dataset=_dataset, model=_model,
+            )
+            # if no experiments skip
+            if not bool(_experiments):
+                continue
+            # backup to main dict
+            if _type.name not in _violin_fig_data:
+                _violin_fig_data[_type.name] = {}
+            if _dataset.name not in _violin_fig_data[_type.name]:
+                _violin_fig_data[_type.name][_dataset.name] = {
+                    'experiment_id': [],
+                    'model': [],
+                    'min traces needed for average rank to be zero': [],
+                }
+            # violin fig data for current model
+            _violin_fig_data_for_model = _violin_fig_data[_type.name][_dataset.name]
+            # log
+            print(f"Generating report for {_type.name}-{_dataset.name}-{_model.name}")
+
+            # ----------------------------------------------- 02.02
             # derive some ranges
             _avg_rank_y_min = 0.
             _avg_rank_y_max = 0.
@@ -698,277 +725,313 @@ class Experiment(t.NamedTuple):
             _train_loss_y_max = 0.
             _val_loss_y_min = np.inf
             _val_loss_y_max = 0.
-            # precompute certain things that are global to models used by this dataset
-            # for _es in [False, True]:
-            for _es in [False, ]:
-                for _model in DEFAULT_PARAMS[_dataset].keys():
-
-                    # skip models from ascad team
-                    if _model in [Model.ascad_mlp, Model.ascad_mlp_fn, Model.ascad_cnn, Model.ascad_cnn_fn]:
-                        continue
-
-                    for _id in range(NUM_EXPERIMENTS):
-                        _experiment = Experiment(
-                            dataset=_dataset, model=_model,
-                            early_stopping=_es, id=_id,
-                        )
-                        if not (_experiment.ranks_file_path.exists() and _experiment.history_file_path.exists()):
-                            continue
-                        _ranks = _experiment.ranks
-                        _avg_rank = np.mean(_ranks, axis=0)
-                        _rank_variance = np.var(_ranks, axis=0)
-                        # update y ranges
-                        # noinspection PyArgumentList
-                        _avg_rank_y_max = max(_avg_rank_y_max, _avg_rank.max())
-                        # noinspection PyArgumentList
-                        _rank_variance_y_max = max(_rank_variance_y_max, _rank_variance.max())
-                        # train and val loss
-                        _train_loss, _val_loss = _experiment.losses
-                        # noinspection PyArgumentList
-                        _train_loss_y_min = min(_train_loss_y_min, min(_train_loss))
-                        # noinspection PyArgumentList
-                        _val_loss_y_min = min(_val_loss_y_min, min(_val_loss))
-                        # noinspection PyArgumentList
-                        _train_loss_y_max = max(_train_loss_y_max, max(_train_loss))
-                        # noinspection PyArgumentList
-                        _val_loss_y_max = max(_val_loss_y_max, max(_val_loss))
-
-            # ----------------------------------------------- 02.02
-            # for _es in [False, True]:
-            for _es in [False, ]:
-
-                # if _es:
-                #     _report_md_lines += [
-                #         f"## Modified original to work with early stopping", ""
-                #     ]
-                # else:
-                #     _report_md_lines += [
-                #         f"## Original (i.e. without early stopping)", ""
-                #     ]
-
-                # lines for table
-                _table_header = "|"
-                _table_sep = "|"
-                _table_avg_rank = "|"
-                # _table_rank_variance = "|"
-                _table_train_loss = "|"
-                _table_val_loss = "|"
-
-                # violin fig data
-                _violin_fig_data = {
-                    'experiment_id': [],
-                    'model': [],
-                    'min traces needed for average rank to be zero': [],
-                }
-                _violin_failure_percent = {}
-                _violin_min_traces_to_converge = {}
-                _violin_max_traces_to_converge = {}
-                _violin_y_max = 0
-
-                for _model in DEFAULT_PARAMS[_dataset].keys():
-
-                    # skip models from ascad team
-                    if _model in [Model.ascad_mlp, Model.ascad_mlp_fn, Model.ascad_cnn, Model.ascad_cnn_fn]:
-                        continue
-
-                    _total_experiments = 0
-                    _failed_experiments = 0
-                    _min_traces_to_converge = np.inf
-                    _max_traces_to_converge = 0
-
-                    # create figures
-                    _fig_name = f"{_dataset.name}-{_model.name} {'(with early stopping)' if _es else ''}"
-                    _avg_rank_fig = go.Figure(
-                        layout=go.Layout(
-                            title=go.layout.Title(
-                                text=f"Average Rank: {_fig_name}")
-                        )
-                    )
-                    # _rank_variance_fig = go.Figure(
-                    #     layout=go.Layout(
-                    #         title=go.layout.Title(
-                    #             text=f"Rank Variance: {_fig_name}")
-                    #     )
-                    # )
-                    _train_loss_fig = go.Figure(
-                        layout=go.Layout(
-                            title=go.layout.Title(text=f"Train Loss: {_fig_name}")
-                        )
-                    )
-                    _val_loss_fig = go.Figure(
-                        layout=go.Layout(
-                            title=go.layout.Title(text=f"Validation Loss: {_fig_name}")
-                        )
-                    )
-
-                    # get all experiments with results available
-                    for _id in range(NUM_EXPERIMENTS):
-                        # get experiment
-                        _experiment = Experiment(
-                            dataset=_dataset, model=_model,
-                            early_stopping=_es, id=_id,
-                        )
-
-                        # skip if not available
-                        if not (_experiment.ranks_file_path.exists() and _experiment.history_file_path.exists()):
-                            continue
-
-                        # extract some data
-                        _rank_plot_until = _dataset.rank_plot_until
-                        _ranks = _experiment.ranks
-                        _train_loss, _val_loss = _experiment.losses
-                        _avg_rank = np.mean(_ranks, axis=0)
-                        _rank_variance = np.var(_ranks, axis=0)
-                        _total_experiments += 1
-                        _traces_with_rank_0 = np.where(_avg_rank <= 0.0)[0]
-                        _violin_fig_data['experiment_id'].append(_id)
-                        _violin_fig_data['model'].append(_model.name)
-                        if len(_traces_with_rank_0) == 0:
-                            _failed_experiments += 1
-                            _violin_fig_data['min traces needed for average rank to be zero'].append(
-                                np.inf
-                            )
-                            _max_traces_to_converge = np.inf
-                        else:
-                            _traces_with_rank_0_min = _traces_with_rank_0.min()
-                            _violin_fig_data['min traces needed for average rank to be zero'].append(
-                                _traces_with_rank_0_min
-                            )
-                            _violin_y_max = max(_violin_y_max, _traces_with_rank_0_min)
-                            _min_traces_to_converge = min(_min_traces_to_converge, _traces_with_rank_0_min)
-                            _max_traces_to_converge = max(_max_traces_to_converge, _traces_with_rank_0_min)
-
-                        # add to figure
-                        _avg_rank_fig.add_trace(
-                            go.Scatter(
-                                x=np.arange(_rank_plot_until),
-                                y=_avg_rank[:_rank_plot_until],
-                                mode='lines',
-                                name=f"exp_{_id:03d}",
-                                showlegend=False,
-                            )
-                        )
-                        # _rank_variance_fig.add_trace(
-                        #     go.Scatter(
-                        #         x=np.arange(_rank_plot_until),
-                        #         y=_rank_variance[:_rank_plot_until],
-                        #         mode='lines',
-                        #         name=f"exp_{_id:03d}",
-                        #         showlegend=False,
-                        #     )
-                        # )
-                        _train_loss_fig.add_trace(
-                            go.Scatter(
-                                x=np.arange(len(_train_loss)),
-                                y=_train_loss,
-                                mode='lines',
-                                name=f"exp_{_id:03d}",
-                                showlegend=False,
-                            )
-                        )
-                        _val_loss_fig.add_trace(
-                            go.Scatter(
-                                x=np.arange(len(_val_loss)),
-                                y=_val_loss,
-                                mode='lines',
-                                name=f"exp_{_id:03d}",
-                                showlegend=False,
-                            )
-                        )
-
-                    # update y range for some figures
-                    _avg_rank_fig.update_layout(yaxis_range=[_avg_rank_y_min, _avg_rank_y_max])
-                    # _rank_variance_fig.update_layout(yaxis_range=[_rank_variance_y_min, _rank_variance_y_max])
-                    _train_loss_fig.update_layout(yaxis_range=[_train_loss_y_min, _train_loss_y_max])
-                    _val_loss_fig.update_layout(yaxis_range=[_val_loss_y_min, _val_loss_y_max])
-
-                    # save figures
-                    _plot_relative_path = f"../plots/{_dataset.name}/{_model.name}/{'es' if _es else 'no_es'}"
-                    _plot_dir = ROOT_DIR / _plot_relative_path
-                    if not _plot_dir.exists():
-                        _plot_dir.mkdir(parents=True)
-                    _avg_rank_fig.write_image((_plot_dir / f"average_rank.svg").as_posix())
-                    # _rank_variance_fig.write_image((_plot_dir / f"rank_variance.svg").as_posix())
-                    _train_loss_fig.write_image((_plot_dir / f"train_loss.svg").as_posix())
-                    _val_loss_fig.write_image((_plot_dir / f"val_loss.svg").as_posix())
-
-                    # make tabular report
-                    # lines for table
-                    if _failed_experiments > 0:
-                        _failure_percent = (_failed_experiments / _total_experiments) * 100.
-                        _table_success_status = f"<span style='color:red'> " \
-                                                f"**{_failure_percent:.2f} % FAILED** " \
-                                                f"</span>"
-                    else:
-                        _failure_percent = 0.
-                        _table_success_status = f"<span style='color:green'> " \
-                                                f"**ALL PASSED** " \
-                                                f"</span>"
-                    _violin_min_traces_to_converge[_model.name] = _min_traces_to_converge
-                    _violin_max_traces_to_converge[_model.name] = _max_traces_to_converge
-                    _violin_failure_percent[_model.name] = _failure_percent
-                    _table_header += f"{_model.name}<br>{_table_success_status}|"
-                    _table_sep += "---|"
-                    _table_avg_rank += f"![Average Rank]({_plot_relative_path}/average_rank.svg)|"
-                    # _table_rank_variance += f"![Rank Variance]({_plot_relative_path}/rank_variance.svg)|"
-                    _table_train_loss += f"![Train Loss]({_plot_relative_path}/train_loss.svg)|"
-                    _table_val_loss += f"![Validation Loss]({_plot_relative_path}/val_loss.svg)|"
-
-                # violin figure
-                _violin_df = pd.DataFrame(_violin_fig_data)
-                _violin_fig = px.violin(
-                    _violin_df,
-                    y="min traces needed for average rank to be zero",
-                    x="model",
-                    color="model",
-                    box=False,
-                    points="all",
-                    hover_data=_violin_df.columns,
-                    title="Distribution of min traces needed for average rank to be zero",
-                )
-                for _model_name, _failure_percent in _violin_failure_percent.items():
-                    _min_traces_to_converge = _violin_min_traces_to_converge[_model_name]
-                    _max_traces_to_converge = _violin_max_traces_to_converge[_model_name]
-                    if _failure_percent == 0.:
-                        _text = f" All passed "
-                        _bgcolor = 'lightgreen'
-                        _bordercolor = 'green'
-                    else:
-                        _text = f" {_failure_percent:.2f} % failed "
-                        _bgcolor = 'pink'
-                        _bordercolor = 'red'
-                    _text += f"<br>min: {_min_traces_to_converge}<br>max: {_max_traces_to_converge}"
-                    _violin_fig.add_annotation(
-                        x=_model_name, y=_violin_y_max + 2,
-                        text=_text,
-                        # bgcolor=_bgcolor,
-                        bordercolor=_bordercolor,
-                        showarrow=True,
-                    )
-                _violin_relative_path = \
-                    f"../plots/{_dataset.name}/{'violin_es.svg' if _es else 'violin_no_es.svg'}"
-                _violin_fig_path = ROOT_DIR / _violin_relative_path
-                _violin_fig.write_image(_violin_fig_path.as_posix())
-
-                # make table
-                _report_md_lines += [
-                    f"![Distribution of min traces needed for average rank to be zero]"
-                    f"({_violin_relative_path})",
-                    "",
-                    _table_header, _table_sep,
-                    _table_avg_rank,
-                    # _table_rank_variance,
-                    _table_train_loss, _table_val_loss
-                ]
+            # loop over experiments to precompute ranges
+            for _experiment in _experiments:
+                _something_exists = True
+                _ranks = _experiment.ranks
+                _avg_rank = np.mean(_ranks, axis=0)
+                _rank_variance = np.var(_ranks, axis=0)
+                # update y ranges
+                # noinspection PyArgumentList
+                _avg_rank_y_max = max(_avg_rank_y_max, _avg_rank.max())
+                # noinspection PyArgumentList
+                _rank_variance_y_max = max(_rank_variance_y_max, _rank_variance.max())
+                # train and val loss
+                _train_loss, _val_loss = _experiment.losses
+                # noinspection PyArgumentList
+                _train_loss_y_min = min(_train_loss_y_min, min(_train_loss))
+                # noinspection PyArgumentList
+                _val_loss_y_min = min(_val_loss_y_min, min(_val_loss))
+                # noinspection PyArgumentList
+                _train_loss_y_max = max(_train_loss_y_max, max(_train_loss))
+                # noinspection PyArgumentList
+                _val_loss_y_max = max(_val_loss_y_max, max(_val_loss))
 
             # ----------------------------------------------- 02.03
-            _report_md_file_path.write_text(
-                "\n".join(_report_md_lines)
+            # create figures
+            _fig_name = f"{_dataset.name}-{_model.name} ({_type.name})"
+            _avg_rank_fig = go.Figure(
+                layout=go.Layout(
+                    title=go.layout.Title(
+                        text=f"Average Rank: {_fig_name}")
+                )
+            )
+            # _rank_variance_fig = go.Figure(
+            #     layout=go.Layout(
+            #         title=go.layout.Title(
+            #             text=f"Rank Variance: {_fig_name}")
+            #     )
+            # )
+            _train_loss_fig = go.Figure(
+                layout=go.Layout(
+                    title=go.layout.Title(text=f"Train Loss: {_fig_name}")
+                )
+            )
+            _val_loss_fig = go.Figure(
+                layout=go.Layout(
+                    title=go.layout.Title(text=f"Validation Loss: {_fig_name}")
+                )
+            )
+            # update y range for some figures
+            _avg_rank_fig.update_layout(yaxis_range=[_avg_rank_y_min, _avg_rank_y_max])
+            # _rank_variance_fig.update_layout(yaxis_range=[_rank_variance_y_min, _rank_variance_y_max])
+            _train_loss_fig.update_layout(yaxis_range=[_train_loss_y_min, _train_loss_y_max])
+            _val_loss_fig.update_layout(yaxis_range=[_val_loss_y_min, _val_loss_y_max])
+
+            # ----------------------------------------------- 02.04
+            # loop over experiments to report it
+            _failed_experiments = 0
+            _traces_needed_range_min = np.inf
+            _traces_needed_range_max = 0
+            for _experiment in _experiments:
+
+                # ------------------------------------------- 02.04.01
+                # extract some data
+                _rank_plot_until = _dataset.rank_plot_until
+                _ranks = _experiment.ranks
+                _train_loss, _val_loss = _experiment.losses
+                _avg_rank = np.mean(_ranks, axis=0)
+                _rank_variance = np.var(_ranks, axis=0)
+                _traces_with_rank_0 = np.where(_avg_rank <= 0.0)[0]
+                if len(_traces_with_rank_0) == 0:
+                    _failed_experiments += 1
+                    _traces_needed_for_rank_0 = np.inf
+                else:
+                    _traces_needed_for_rank_0 = int(_traces_with_rank_0.min())
+                    _traces_needed_range_min = min(_traces_needed_range_min, _traces_needed_for_rank_0)
+                    _traces_needed_range_max = max(_traces_needed_range_max, _traces_needed_for_rank_0)
+
+                # ------------------------------------------- 02.04.02
+                # update violin fig data
+                _violin_fig_data_for_model['experiment_id'].append(_experiment.id)
+                _violin_fig_data_for_model['model'].append(_model.name)
+                _violin_fig_data_for_model[
+                    'min traces needed for average rank to be zero'
+                ].append(_traces_needed_for_rank_0)
+
+                # ------------------------------------------- 02.04.03
+                # plot to figures
+                _avg_rank_fig.add_trace(
+                    go.Scatter(
+                        x=np.arange(_rank_plot_until),
+                        y=_avg_rank[:_rank_plot_until],
+                        mode='lines',
+                        name=f"exp_{_experiment.id:03d}",
+                        showlegend=False,
+                    )
+                )
+                # _rank_variance_fig.add_trace(
+                #     go.Scatter(
+                #         x=np.arange(_rank_plot_until),
+                #         y=_rank_variance[:_rank_plot_until],
+                #         mode='lines',
+                #         name=f"exp_{_experiment.id:03d}",
+                #         showlegend=False,
+                #     )
+                # )
+                _train_loss_fig.add_trace(
+                    go.Scatter(
+                        x=np.arange(len(_train_loss)),
+                        y=_train_loss,
+                        mode='lines',
+                        name=f"exp_{_experiment.id:03d}",
+                        showlegend=False,
+                    )
+                )
+                _val_loss_fig.add_trace(
+                    go.Scatter(
+                        x=np.arange(len(_val_loss)),
+                        y=_val_loss,
+                        mode='lines',
+                        name=f"exp_{_experiment.id:03d}",
+                        showlegend=False,
+                    )
+                )
+
+            # ----------------------------------------------- 02.05
+            # save figures
+            _plot_relative_path = f"{_type.name}/{_dataset.name}/{_model.name}"
+            _plot_dir = PLOTS_DIR / _plot_relative_path
+            if not _plot_dir.exists():
+                _plot_dir.mkdir(parents=True)
+            _avg_rank_fig.write_image((_plot_dir / f"average_rank.svg").as_posix(), engine='kaleido')
+            # _rank_variance_fig.write_image((_plot_dir / f"rank_variance.svg").as_posix(), engine='kaleido')
+            _train_loss_fig.write_image((_plot_dir / f"train_loss.svg").as_posix(), engine='kaleido')
+            _val_loss_fig.write_image((_plot_dir / f"val_loss.svg").as_posix(), engine='kaleido')
+
+            # ----------------------------------------------- 02.06
+            # update dataframe
+            if _traces_needed_range_max == 0:
+                # in case if all experiments have failed
+                _traces_needed_range_max = np.inf
+            _report_df = _report_df.append(
+                {
+                    "type": _type.name, "dataset": _dataset.name, "model": _model.name,
+                    "failed_experiments": _failed_experiments,
+                    "total_experiments": float(len(_experiments)),
+                    "traces_needed_range_min": _traces_needed_range_min,
+                    "traces_needed_range_max": _traces_needed_range_max,
+                }, ignore_index=True,
             )
 
-        _base_report_md_file_path.write_text(
-            "\n".join(_base_report_md_lines)
-        )
+        # --------------------------------------------------- 03
+        # make tabular reports
+        _report_md_lines_dict = {}
+        for _type, _dataset in itertools.product(
+            _report_df.type.unique(),
+            _report_df.dataset.unique(),
+        ):
+            # ----------------------------------------------- 03.01
+            # filter report df
+            _filter_report_df = _report_df[
+                (_report_df["type"] == _type) &
+                (_report_df["dataset"] == _dataset)
+            ]
+
+            # ----------------------------------------------- 03.02
+            # bake table header
+            # lines for table
+            _report_md_lines = []
+            if _dataset not in _report_md_lines_dict:
+                _report_md_lines_dict[_dataset] = {}
+            if _type not in _report_md_lines_dict[_dataset]:
+                _report_md_lines_dict[_dataset][_type] = _report_md_lines
+            else:
+                raise Exception(f"Was not expecting {_type} to be present")
+            _table_header = "|"
+            _table_sep = "|"
+            _table_avg_rank = "|"
+            # _table_rank_variance = "|"
+            _table_train_loss = "|"
+            _table_val_loss = "|"
+
+            # ----------------------------------------------- 03.03
+            # make violin figure
+            _violin_df = pd.DataFrame(_violin_fig_data[_type][_dataset])
+            _violin_fig = px.violin(
+                _violin_df,
+                y="min traces needed for average rank to be zero",
+                x="model",
+                color="model",
+                box=False,
+                points="all",
+                hover_data=_violin_df.columns,
+                title="Distribution of min traces needed for average rank to be zero",
+            )
+
+            # ----------------------------------------------- 03.04
+            # loop over models for the current type and dataset
+            for _model in _filter_report_df.model.unique():
+
+                # ------------------------------------------- 03.04.01
+                # filter again for models
+                _filter_report_df_for_model = _filter_report_df[_filter_report_df['model'] == _model]
+                assert len(_filter_report_df_for_model) == 1
+                _filter_report_df_for_model = _filter_report_df_for_model.iloc[0]
+
+                # ------------------------------------------- 03.04.02
+                # fail percent
+                _fail_percent = float(
+                    _filter_report_df_for_model.failed_experiments /
+                    _filter_report_df_for_model.total_experiments
+                ) * 100.
+                # for table
+                if _fail_percent > 0.:
+                    _table_success_status = f"<span style='color:red'> " \
+                                            f"**{_fail_percent:.2f} % FAILED** " \
+                                            f"</span>"
+                else:
+                    _table_success_status = f"<span style='color:green'> " \
+                                            f"**ALL PASSED** " \
+                                            f"</span>"
+
+                # ------------------------------------------- 03.04.03
+                # update table
+                _plot_relative_path = f"../plots/{_type}/{_dataset}/{_model}"
+                _table_header += f"{_model}<br>{_table_success_status}|"
+                _table_sep += "---|"
+                _table_avg_rank += f"![Average Rank]({_plot_relative_path}/average_rank.svg)|"
+                # _table_rank_variance += f"![Rank Variance]({_plot_relative_path}/rank_variance.svg)|"
+                _table_train_loss += f"![Train Loss]({_plot_relative_path}/train_loss.svg)|"
+                _table_val_loss += f"![Validation Loss]({_plot_relative_path}/val_loss.svg)|"
+
+                # ------------------------------------------- 03.04.04
+                # for violin figure
+                _min_traces_to_converge = _filter_report_df_for_model.traces_needed_range_min
+                _max_traces_to_converge = _filter_report_df_for_model.traces_needed_range_max
+                if _fail_percent == 0.:
+                    _text = f" All passed "
+                    _bgcolor = 'lightgreen'
+                    _bordercolor = 'green'
+                else:
+                    _text = f" {_fail_percent:.2f} % failed "
+                    _bgcolor = 'pink'
+                    _bordercolor = 'red'
+                _text += f"<br>min: {_min_traces_to_converge}<br>max: {_max_traces_to_converge}"
+                _violin_fig.add_annotation(
+                    x=_model,
+                    # todo ................
+                    # y=_violin_y_max + 2,
+                    text=_text,
+                    # bgcolor=_bgcolor,
+                    bordercolor=_bordercolor,
+                    showarrow=True,
+                )
+
+            # ----------------------------------------------- 03.05
+            # make table
+            _violin_relative_path = f"../plots/{_type}/{_dataset}/violin.svg"
+            _report_md_lines += [
+                f"![Distribution of min traces needed for average rank to be zero]"
+                f"({_violin_relative_path})",
+                "",
+                _table_header, _table_sep,
+                _table_avg_rank,
+                # _table_rank_variance,
+                _table_train_loss, _table_val_loss
+            ]
+
+            # ----------------------------------------------- 03.06
+            # write violin plot
+            _violin_fig_path = PLOTS_DIR / _type / _dataset / "violin.svg"
+            _violin_fig.write_image(_violin_fig_path.as_posix(), engine='kaleido')
+
+        # --------------------------------------------------- 04
+        # write reports to disk
+        # --------------------------------------------------- 04.01
+        # write base reports.md
+        _base_report_md_file_path = ROOT_DIR / "reports.md"
+        _base_report_md_lines = [
+           "", f"# Detailed analysis available for below models:", ""
+        ]
+        for _dataset in _report_md_lines_dict:
+            _base_report_md_lines.append(
+                f"+ [{_dataset}](reports/{_dataset}.md)"
+            )
+        _base_report_md_file_path.write_text("\n".join(_base_report_md_lines))
+        # --------------------------------------------------- 04.02
+        # write report for dataset
+        for _dataset, _dataset_reports in _report_md_lines_dict.items():
+
+            _dataset_report_md_file_path = REPORTS_DIR / f"{_dataset}.md"
+            if not _dataset_report_md_file_path.parent.exists():
+                _dataset_report_md_file_path.parent.mkdir(parents=True)
+
+            _dataset_report_md_lines = [
+                f"",
+                f"# Detailed analysis for dataset `{_dataset}` ...",
+                f"",
+            ]
+
+            for _type, _type_report_lines in _dataset_reports.items():
+                _dataset_report_md_lines += [
+                    "", f"## Train and attack for `{_type}`", ""
+                ]
+                _dataset_report_md_lines += _type_report_lines
+
+            _dataset_report_md_file_path.write_text(
+                "\n".join(_dataset_report_md_lines)
+            )
 
     @classmethod
     def wipe_it(cls):
