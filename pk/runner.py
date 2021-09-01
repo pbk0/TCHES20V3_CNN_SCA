@@ -28,7 +28,7 @@ RESULTS_DIR = ROOT_DIR / "results"
 PLOTS_DIR = ROOT_DIR / "plots"
 REPORTS_DIR = ROOT_DIR / "reports"
 NUM_ATTACKS_PER_EXPERIMENT = 100
-NUM_EXPERIMENTS = 1
+NUM_EXPERIMENTS = 3
 
 
 def preprocess_predictions(predictions, all_guess_targets, num_examples, num_guesses) -> np.ndarray:
@@ -274,7 +274,7 @@ class ExperimentType(enum.Enum):
 
 
 MODELS_TO_TRY = [
-    Model.s_eff_cnn_hw, Model.s_eff_cnn_id, Model.aisy_id_mlp, Model.aisy_hw_mlp,
+    Model.s_eff_cnn_id, Model.aisy_id_mlp, Model.s_eff_cnn_hw, Model.aisy_hw_mlp,
 ]
 DATASETS_TO_TRY = [
     Dataset.ascad_0, Dataset.ascad_r_0,
@@ -313,21 +313,21 @@ DEFAULT_PARAMS = {
             preprocessor=Preprocessor.feature_standardization,
         ),
         Model.aisy_hw_mlp: Params(
-            epochs=10, batch_size=32, learning_rate=1e-5, one_cycle_lr=False,
+            epochs=10, batch_size=32, learning_rate=5e-4, one_cycle_lr=False,
             preprocessor=Preprocessor.feature_standardization,
         ),
         Model.aisy_id_mlp: Params(
-            epochs=10, batch_size=32, learning_rate=1e-5, one_cycle_lr=False,
+            epochs=10, batch_size=32, learning_rate=5e-4, one_cycle_lr=False,
             preprocessor=Preprocessor.feature_standardization,
         ),
     },
     Dataset.ascad_r_0: {
         Model.aisy_hw_mlp: Params(
-            epochs=10, batch_size=32, learning_rate=1e-5, one_cycle_lr=False,
+            epochs=10, batch_size=32, learning_rate=5e-4, one_cycle_lr=False,
             preprocessor=Preprocessor.feature_standardization,
         ),
         Model.aisy_id_mlp: Params(
-            epochs=10, batch_size=32, learning_rate=1e-5, one_cycle_lr=False,
+            epochs=10, batch_size=32, learning_rate=5e-4, one_cycle_lr=False,
             preprocessor=Preprocessor.feature_standardization,
         ),
     },
@@ -464,7 +464,7 @@ class Experiment(t.NamedTuple):
         try:
             return DEFAULT_PARAMS[self.dataset][self.model]
         except KeyError:
-            raise Exception(
+            raise KeyError(
                 f"Default parameters not available for model `{self.model.name}` with dataset `{self.dataset.name}`"
             )
 
@@ -565,9 +565,14 @@ class Experiment(t.NamedTuple):
             for _dataset in DATASETS_TO_TRY:
                 for _model in MODELS_TO_TRY:
                     for _id in range(NUM_EXPERIMENTS):
-                        yield Experiment(
+                        _exp = Experiment(
                             id=_id, dataset=_dataset, model=_model, type=_type,
                         )
+                        try:
+                            _ = _exp.default_params
+                        except KeyError:
+                            continue
+                        yield _exp
 
     @classmethod
     def do_it(cls):

@@ -425,8 +425,8 @@ def aisy_ascad_f_id_mlp(input_size=700, learning_rate=5e-4, classes=256):
 
 
 # HW_RA_ACC_200Trails
-def aisy_ascad_r_hw_mlp(input_size=700, learning_rate=5e-4, classes=256):
-    assert classes == 256
+def aisy_ascad_r_hw_mlp(input_size=1400, learning_rate=5e-4, classes=9):
+    assert classes == 9
     img_input = Input(shape=(input_size, 1))
     x = Flatten(name='flatten')(img_input)
     x = Dense(200, activation='elu')(x)
@@ -445,7 +445,7 @@ def aisy_ascad_r_hw_mlp(input_size=700, learning_rate=5e-4, classes=256):
 
 
 # ID_RA_Key_Rank_200Trails
-def aisy_ascad_r_id_mlp(input_size=700, learning_rate=5e-4, classes=256):
+def aisy_ascad_r_id_mlp(input_size=1400, learning_rate=5e-4, classes=256):
     assert classes == 256
     img_input = Input(shape=(input_size, 1))
     x = Flatten(name='flatten')(img_input)
