@@ -280,7 +280,7 @@ DATASETS_TO_TRY = [
     Dataset.ascad_0, Dataset.ascad_r_0,
 ]
 EXPERIMENT_TYPES_TO_TRY = [
-    ExperimentType.original,  # ExperimentType.early_stopping, ExperimentType.over_fit,
+    ExperimentType.original,  ExperimentType.early_stopping,  # ExperimentType.over_fit,
 ]
 DEFAULT_PARAMS = {
     Dataset.ascad_0: {
@@ -481,6 +481,14 @@ class Experiment(t.NamedTuple):
         val_loss = history['val_loss']
         return train_loss, val_loss
 
+    @property
+    def accuracies(self) -> t.Tuple[np.ndarray, np.ndarray]:
+        with open(self.history_file_path.as_posix(), 'rb') as file_pi:
+            history = pickle.load(file_pi)
+        train_acc = history['accuracy']
+        val_acc = history['val_accuracy']
+        return train_acc, val_acc
+
     def dump_plots(self):
         # ---------------------------------------------------- 01
         # check if done
@@ -637,13 +645,10 @@ class Experiment(t.NamedTuple):
             # ------------------------------------------------ 08
             # train the model
             print(f" > {_experiment.name} ... training ...")
-            if _experiment.type is ExperimentType.early_stopping:
-                checkpoint = ModelCheckpoint(
-                    _experiment.model_file_path.as_posix(),
-                    monitor='val_loss', mode='min', verbose=1, save_best_only=True)
-            else:
-                checkpoint = ModelCheckpoint(
-                    _experiment.model_file_path.as_posix(), verbose=1, save_best_only=False)
+            _save_best_only = _experiment.type is ExperimentType.early_stopping
+            checkpoint = ModelCheckpoint(
+                _experiment.model_file_path.as_posix(),
+                monitor='val_loss', mode='min', verbose=1, save_best_only=_save_best_only)
 
             if _params.one_cycle_lr:
                 print('During training we will make use of the One Cycle learning rate policy.')
@@ -653,10 +658,15 @@ class Experiment(t.NamedTuple):
             else:
                 callbacks = [checkpoint]
             _num_classes = 9 if _experiment.model.hw_leakage_model else 256
+            _epochs = _params.epochs
+            # increase epochs when using early stopping
+            if _experiment.type is ExperimentType.early_stopping:
+                _epochs *= 2
+            # call fit
             history = _model.fit(
                 x=tracesTrain_shaped, y=to_categorical(labelsTrain, num_classes=_num_classes),
                 validation_data=(tracesVal_shaped, to_categorical(labelsVal, num_classes=_num_classes)),
-                batch_size=_params.batch_size, verbose=1, epochs=_params.epochs, callbacks=callbacks)
+                batch_size=_params.batch_size, verbose=1, epochs=_epochs, callbacks=callbacks)
 
             # ------------------------------------------------ 09
             # save history
@@ -757,6 +767,10 @@ class Experiment(t.NamedTuple):
             _train_loss_y_max = 0.
             _val_loss_y_min = np.inf
             _val_loss_y_max = 0.
+            _train_acc_y_min = np.inf
+            _train_acc_y_max = 0.
+            _val_acc_y_min = np.inf
+            _val_acc_y_max = 0.
             # loop over experiments to precompute ranges
             for _experiment in _experiments:
                 _something_exists = True
@@ -770,6 +784,8 @@ class Experiment(t.NamedTuple):
                 _rank_variance_y_max = max(_rank_variance_y_max, _rank_variance.max())
                 # train and val loss
                 _train_loss, _val_loss = _experiment.losses
+                # train and val acc
+                _train_acc, _val_acc = _experiment.accuracies
                 # noinspection PyArgumentList
                 _train_loss_y_min = min(_train_loss_y_min, min(_train_loss))
                 # noinspection PyArgumentList
@@ -778,6 +794,14 @@ class Experiment(t.NamedTuple):
                 _train_loss_y_max = max(_train_loss_y_max, max(_train_loss))
                 # noinspection PyArgumentList
                 _val_loss_y_max = max(_val_loss_y_max, max(_val_loss))
+                # noinspection PyArgumentList
+                _train_acc_y_min = min(_train_acc_y_min, min(_train_acc))
+                # noinspection PyArgumentList
+                _val_acc_y_min = min(_val_acc_y_min, min(_val_acc))
+                # noinspection PyArgumentList
+                _train_acc_y_max = max(_train_acc_y_max, max(_train_acc))
+                # noinspection PyArgumentList
+                _val_acc_y_max = max(_val_acc_y_max, max(_val_acc))
 
             # ----------------------------------------------- 02.03
             # create figures
@@ -804,11 +828,23 @@ class Experiment(t.NamedTuple):
                     title=go.layout.Title(text=f"Validation Loss: {_fig_name}")
                 )
             )
+            _train_acc_fig = go.Figure(
+                layout=go.Layout(
+                    title=go.layout.Title(text=f"Train Accuracy: {_fig_name}")
+                )
+            )
+            _val_acc_fig = go.Figure(
+                layout=go.Layout(
+                    title=go.layout.Title(text=f"Validation Accuracy: {_fig_name}")
+                )
+            )
             # update y range for some figures
             _avg_rank_fig.update_layout(yaxis_range=[_avg_rank_y_min, _avg_rank_y_max])
             # _rank_variance_fig.update_layout(yaxis_range=[_rank_variance_y_min, _rank_variance_y_max])
             _train_loss_fig.update_layout(yaxis_range=[_train_loss_y_min, _train_loss_y_max])
             _val_loss_fig.update_layout(yaxis_range=[_val_loss_y_min, _val_loss_y_max])
+            _train_acc_fig.update_layout(yaxis_range=[_train_acc_y_min, _train_acc_y_max])
+            _val_acc_fig.update_layout(yaxis_range=[_val_acc_y_min, _val_acc_y_max])
 
             # ----------------------------------------------- 02.04
             # loop over experiments to report it
@@ -822,6 +858,7 @@ class Experiment(t.NamedTuple):
                 _rank_plot_until = _dataset.rank_plot_until
                 _ranks = _experiment.ranks
                 _train_loss, _val_loss = _experiment.losses
+                _train_acc, _val_acc = _experiment.accuracies
                 _avg_rank = np.mean(_ranks, axis=0)
                 _rank_variance = np.var(_ranks, axis=0)
                 _traces_with_rank_0 = np.where(_avg_rank <= 0.0)[0]
@@ -879,6 +916,24 @@ class Experiment(t.NamedTuple):
                         showlegend=False,
                     )
                 )
+                _train_acc_fig.add_trace(
+                    go.Scatter(
+                        x=np.arange(len(_train_acc)),
+                        y=_train_acc,
+                        mode='lines',
+                        name=f"exp_{_experiment.id:03d}",
+                        showlegend=False,
+                    )
+                )
+                _val_acc_fig.add_trace(
+                    go.Scatter(
+                        x=np.arange(len(_val_acc)),
+                        y=_val_acc,
+                        mode='lines',
+                        name=f"exp_{_experiment.id:03d}",
+                        showlegend=False,
+                    )
+                )
 
             # ----------------------------------------------- 02.05
             # save figures
@@ -890,6 +945,8 @@ class Experiment(t.NamedTuple):
             # _rank_variance_fig.write_image((_plot_dir / f"rank_variance.svg").as_posix(), engine='kaleido')
             _train_loss_fig.write_image((_plot_dir / f"train_loss.svg").as_posix(), engine='kaleido')
             _val_loss_fig.write_image((_plot_dir / f"val_loss.svg").as_posix(), engine='kaleido')
+            _train_acc_fig.write_image((_plot_dir / f"train_acc.svg").as_posix(), engine='kaleido')
+            _val_acc_fig.write_image((_plot_dir / f"val_acc.svg").as_posix(), engine='kaleido')
 
             # ----------------------------------------------- 02.06
             # update dataframe
@@ -936,6 +993,8 @@ class Experiment(t.NamedTuple):
             # _table_rank_variance = "|"
             _table_train_loss = "|"
             _table_val_loss = "|"
+            _table_train_acc = "|"
+            _table_val_acc = "|"
 
             # ----------------------------------------------- 03.03
             # make violin figure
@@ -986,6 +1045,8 @@ class Experiment(t.NamedTuple):
                 # _table_rank_variance += f"![Rank Variance]({_plot_relative_path}/rank_variance.svg)|"
                 _table_train_loss += f"![Train Loss]({_plot_relative_path}/train_loss.svg)|"
                 _table_val_loss += f"![Validation Loss]({_plot_relative_path}/val_loss.svg)|"
+                _table_train_acc += f"![Train Accuracy]({_plot_relative_path}/train_acc.svg)|"
+                _table_val_acc += f"![Validation Accuracy]({_plot_relative_path}/val_acc.svg)|"
 
                 # ------------------------------------------- 03.04.04
                 # for violin figure
@@ -1020,7 +1081,8 @@ class Experiment(t.NamedTuple):
                 _table_header, _table_sep,
                 _table_avg_rank,
                 # _table_rank_variance,
-                _table_train_loss, _table_val_loss
+                _table_train_loss, _table_val_loss,
+                _table_train_acc, _table_val_acc,
             ]
 
             # ----------------------------------------------- 03.06
