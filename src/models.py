@@ -6,10 +6,10 @@ https://github.com/gabzai/Methodology-for-efficient-CNN-architectures-in-SCA
 The simplified models in which the first convolutional layer is removed start with 'noConv1_'.
 '''
 
-from keras.models import Model, Sequential
-from keras.layers import Flatten, Dense, Input, Conv1D, AveragePooling1D, BatchNormalization
-from keras import backend as K
-from keras.optimizers import Adam, RMSprop
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import Flatten, Dense, Input, Conv1D, AveragePooling1D, BatchNormalization
+from tensorflow.keras import backend as K
+from tensorflow.keras.optimizers import Adam, RMSprop
 
 
 #### MLP Best model (6 layers of 200 units)
