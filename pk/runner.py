@@ -688,7 +688,7 @@ class Experiment(t.NamedTuple):
             # load model
             _model = load_model(_experiment.model_file_path.as_posix())
             # adjust shape
-            input_layer_shape = _model.get_layer(index=0).input_shape
+            input_layer_shape = _model.get_layer(index=0).input_shape[0]
             if len(input_layer_shape) == 2:
                 tracesAttack_shaped = X_attack_processed
             elif len(input_layer_shape) == 3:
