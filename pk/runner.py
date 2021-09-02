@@ -545,16 +545,17 @@ class Experiment(t.NamedTuple):
         experiment_type: ExperimentType = None,
         dataset: Dataset = None,
         model: Model = None,
+        get_all: bool = False,
     ) -> t.List["Experiment"]:
         _ret = []
         for _type_dir in RESULTS_DIR.iterdir():
-            if experiment_type != ExperimentType[_type_dir.name]:
+            if experiment_type != ExperimentType[_type_dir.name] and experiment_type is not None:
                 continue
             for _dataset_dir in _type_dir.iterdir():
-                if dataset != Dataset[_dataset_dir.name]:
+                if dataset != Dataset[_dataset_dir.name] and dataset is not None:
                     continue
                 for _model_dir in _dataset_dir.iterdir():
-                    if model != Model[_model_dir.name]:
+                    if model != Model[_model_dir.name] and model is not None:
                         continue
                     for _id_dir in _model_dir.iterdir():
                         _exp = Experiment(
@@ -563,8 +564,11 @@ class Experiment(t.NamedTuple):
                             id=int(_id_dir.name),
                             type=ExperimentType[_type_dir.name],
                         )
-                        if _exp.is_done:
+                        if get_all:
                             _ret.append(_exp)
+                        else:
+                            if _exp.is_done:
+                                _ret.append(_exp)
         return _ret
 
     @classmethod
@@ -1129,7 +1133,7 @@ class Experiment(t.NamedTuple):
 
     @classmethod
     def wipe_it(cls):
-        for _e in cls.get_existing_experiments_on_disk():
+        for _e in cls.get_existing_experiments_on_disk(get_all=True):
             _e.wipe()
 
     @classmethod
