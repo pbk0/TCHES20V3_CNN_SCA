@@ -636,7 +636,7 @@ class Experiment(t.NamedTuple):
 
             # ------------------------------------------------ 07
             # Ensure the data is in the right shape
-            input_layer_shape = _model.get_layer(index=0).input_shape
+            input_layer_shape = _model.get_layer(index=0).input_shape[0]
             if len(input_layer_shape) == 2:
                 tracesTrain_shaped = tracesTrain
                 tracesVal_shaped = tracesVal
