@@ -13,10 +13,10 @@ import tqdm
 import plotly.graph_objects as go
 import pickle
 import plotly.express as px
-from keras import backend as K
-from keras.callbacks import ModelCheckpoint
-from keras.utils import to_categorical
-from keras.models import load_model
+from tensorflow.keras import backend as K
+from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.models import load_model
 
 from src.clr import OneCycleLR
 from src import dataLoaders
