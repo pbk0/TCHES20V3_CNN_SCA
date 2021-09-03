@@ -1196,9 +1196,6 @@ def main():
     print("*******************************", sys.argv)
     print("*******************************************************************************")
 
-    Experiment.migrate_it()
-    raise
-
     _mode = sys.argv[1]
     if _mode == 'do_it':
         Experiment.do_it()
@@ -1208,6 +1205,8 @@ def main():
         Experiment.wipe_it()
     elif _mode == 'zip_it':
         Experiment.zip_it()
+    elif _mode == 'migrate_it':
+        Experiment.migrate_it()
     else:
         raise Exception(f"Unknown {_mode}")
 
