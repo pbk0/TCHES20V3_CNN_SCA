@@ -11,6 +11,7 @@ import enum
 from sklearn.model_selection import train_test_split
 import tqdm
 import plotly.graph_objects as go
+import shutil
 import pickle
 import plotly.express as px
 from tensorflow.keras import backend as K
@@ -451,9 +452,19 @@ class Experiment(t.NamedTuple):
         return self.is_executing_file_path.exists()
 
     @property
+    def is_migrated_file_path(self) -> pathlib.Path:
+        return self.store_dir / "__is_migrated__"
+
+    @property
+    def is_migrated(self) -> bool:
+        return self.is_migrated_file_path.exists()
+
+    @property
     def is_done(self) -> bool:
         if self.is_executing:
             return False
+        if self.is_migrated:
+            return True
         if self.history_file_path.exists() and self.ranks_file_path.exists():
             return True
         else:
@@ -722,6 +733,32 @@ class Experiment(t.NamedTuple):
             # ------------------------------------------------ 13
             # as things are over release semaphore
             _experiment.is_executing_file_path.unlink()
+
+    @classmethod
+    def migrate_it(cls, remote_location: pathlib.Path = pathlib.Path("Z:\\TCHES20V3_CNN_SCA\\pk\\results")):
+        for _type_dir in remote_location.iterdir():
+            for _dataset_dir in _type_dir.iterdir():
+                for _model_dir in _dataset_dir.iterdir():
+                    for _id_dir in _model_dir.iterdir():
+                        _exp = Experiment(
+                            dataset=Dataset[_dataset_dir.name],
+                            model=Model[_model_dir.name],
+                            id=int(_id_dir.name),
+                            type=ExperimentType[_type_dir.name],
+                        )
+                        if (_id_dir / _exp.is_migrated_file_path.name).exists():
+                            continue
+                        _remote_history_file_path = _id_dir / _exp.history_file_path.name
+                        _remote_model_file_path = _id_dir / _exp.model_file_path.name
+                        _remote_ranks_file_path = _id_dir / _exp.ranks_file_path.name
+                        if _remote_history_file_path.exists() and _remote_ranks_file_path.exists():
+                            (_id_dir / _exp.is_migrated_file_path.name).touch()
+                            print(f"Migrating {_exp.name}")
+                            if _remote_model_file_path.exists():
+                                _remote_model_file_path.unlink()
+                                _exp.store_dir.mkdir(parents=True, exist_ok=True)
+                                shutil.move(_remote_history_file_path, _exp.history_file_path)
+                                shutil.move(_remote_ranks_file_path, _exp.ranks_file_path)
 
     @classmethod
     def report_it(cls):
@@ -1158,6 +1195,9 @@ def main():
     print("*******************************************************************************")
     print("*******************************", sys.argv)
     print("*******************************************************************************")
+
+    Experiment.migrate_it()
+    raise
 
     _mode = sys.argv[1]
     if _mode == 'do_it':
