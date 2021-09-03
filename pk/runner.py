@@ -485,8 +485,8 @@ class Experiment(t.NamedTuple):
     def accuracies(self) -> t.Tuple[np.ndarray, np.ndarray]:
         with open(self.history_file_path.as_posix(), 'rb') as file_pi:
             history = pickle.load(file_pi)
-        train_acc = history['accuracy']
-        val_acc = history['val_accuracy']
+        train_acc = history['acc']
+        val_acc = history['val_acc']
         return train_acc, val_acc
 
     def dump_plots(self):
