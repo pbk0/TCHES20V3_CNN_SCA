@@ -192,8 +192,7 @@ class Preprocessor(enum.Enum):
 class Model(enum.Enum):
     ascad_mlp = enum.auto()
     ascad_cnn = enum.auto()
-    ascad_mlp_fn = enum.auto()
-    ascad_cnn_fn = enum.auto()
+    ascad_cnn2 = enum.auto()
     eff_cnn = enum.auto()
     s_eff_cnn_id = enum.auto()
     s_eff_cnn_hw = enum.auto()
@@ -208,12 +207,15 @@ class Model(enum.Enum):
 
     # noinspection DuplicatedCode
     def make_fn(self, dataset: Dataset) -> t.Callable:
-        if self in [self.ascad_mlp, self.ascad_mlp_fn, ]:
+        if self in [self.ascad_mlp, ]:
             if dataset in [Dataset.ascad_0, Dataset.ascad_50, Dataset.ascad_100, ]:
                 return models.ascad_mlp_best
-        elif self in [self.ascad_cnn, self.ascad_cnn_fn, ]:
+        elif self in [self.ascad_cnn, ]:
             if dataset in [Dataset.ascad_0, Dataset.ascad_50, Dataset.ascad_100, ]:
                 return models.ascad_cnn_best
+        elif self in [self.ascad_cnn2, ]:
+            if dataset in [Dataset.ascad_r_0, ]:
+                return models.ascad_cnn_best2
         elif self is self.eff_cnn:
             if dataset is Dataset.ascad_0:
                 return models.zaid_ascad_desync_0
@@ -275,7 +277,7 @@ class ExperimentType(enum.Enum):
 
 
 MODELS_TO_TRY = [
-    Model.s_eff_cnn_id, Model.aisy_id_mlp, Model.s_eff_cnn_hw, Model.aisy_hw_mlp,
+    Model.s_eff_cnn_id, Model.aisy_id_mlp, Model.s_eff_cnn_hw, Model.aisy_hw_mlp, Model.ascad_cnn2,
 ]
 DATASETS_TO_TRY = [
     Dataset.ascad_0, Dataset.ascad_r_0,
@@ -285,28 +287,24 @@ EXPERIMENT_TYPES_TO_TRY = [
 ]
 DEFAULT_PARAMS = {
     Dataset.ascad_0: {
-        # Model.ascad_mlp: Params(
-        #     epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
-        #     preprocessor=Preprocessor.none,
-        # ),
-        # Model.ascad_cnn: Params(
-        #     epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
-        #     preprocessor=Preprocessor.none,
-        # ),
-        # Model.ascad_mlp_fn: Params(
-        #     epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
-        #     preprocessor=Preprocessor.feature_standardization,
-        # ),
-        # Model.ascad_cnn_fn: Params(
-        #     epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
-        #     preprocessor=Preprocessor.feature_standardization,
-        # ),
+        Model.ascad_mlp: Params(
+            epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
+            preprocessor=Preprocessor.none,
+        ),
+        Model.ascad_cnn: Params(
+            epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
+            preprocessor=Preprocessor.none,
+        ),
         Model.eff_cnn: Params(
             epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
             preprocessor=Preprocessor.feature_standardization,
         ),
         Model.s_eff_cnn_id: Params(
             epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
+            preprocessor=Preprocessor.feature_standardization,
+        ),
+        Model.aisy_id_mlp: Params(
+            epochs=10, batch_size=32, learning_rate=5e-4, one_cycle_lr=False,
             preprocessor=Preprocessor.feature_standardization,
         ),
         Model.s_eff_cnn_hw: Params(
@@ -317,12 +315,12 @@ DEFAULT_PARAMS = {
             epochs=10, batch_size=32, learning_rate=5e-4, one_cycle_lr=False,
             preprocessor=Preprocessor.feature_standardization,
         ),
-        Model.aisy_id_mlp: Params(
-            epochs=10, batch_size=32, learning_rate=5e-4, one_cycle_lr=False,
-            preprocessor=Preprocessor.feature_standardization,
-        ),
     },
     Dataset.ascad_r_0: {
+        Model.ascad_cnn2: Params(
+            epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
+            preprocessor=Preprocessor.none,
+        ),
         Model.aisy_hw_mlp: Params(
             epochs=10, batch_size=32, learning_rate=5e-4, one_cycle_lr=False,
             preprocessor=Preprocessor.feature_standardization,
@@ -341,14 +339,6 @@ DEFAULT_PARAMS = {
             epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
             preprocessor=Preprocessor.none,
         ),
-        Model.ascad_mlp_fn: Params(
-            epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
-            preprocessor=Preprocessor.horizontal_standardization,
-        ),
-        Model.ascad_cnn_fn: Params(
-            epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
-            preprocessor=Preprocessor.horizontal_standardization,
-        ),
         Model.eff_cnn: Params(
             epochs=50, batch_size=256, learning_rate=5e-3, one_cycle_lr=True,
             preprocessor=Preprocessor.horizontal_standardization,
@@ -366,14 +356,6 @@ DEFAULT_PARAMS = {
         Model.ascad_cnn: Params(
             epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
             preprocessor=Preprocessor.none,
-        ),
-        Model.ascad_mlp_fn: Params(
-            epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
-            preprocessor=Preprocessor.horizontal_standardization,
-        ),
-        Model.ascad_cnn_fn: Params(
-            epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
-            preprocessor=Preprocessor.horizontal_standardization,
         ),
         Model.eff_cnn: Params(
             epochs=50, batch_size=256, learning_rate=1e-2, one_cycle_lr=True,
@@ -733,6 +715,7 @@ class Experiment(t.NamedTuple):
             # ------------------------------------------------ 13
             # as things are over release semaphore
             _experiment.is_executing_file_path.unlink()
+            _experiment.model_file_path.unlink()
 
     @classmethod
     def migrate_it(cls, remote_location: pathlib.Path = pathlib.Path("Z:\\TCHES20V3_CNN_SCA\\pk\\results")):
@@ -755,7 +738,8 @@ class Experiment(t.NamedTuple):
                             (_id_dir / _exp.is_migrated_file_path.name).touch()
                             print(f"Migrating {_exp.name}")
                             if _remote_model_file_path.exists():
-                                _remote_model_file_path.unlink()
+                                if _remote_model_file_path.exists():
+                                    _remote_model_file_path.unlink()
                                 _exp.store_dir.mkdir(parents=True, exist_ok=True)
                                 shutil.move(_remote_history_file_path, _exp.history_file_path)
                                 shutil.move(_remote_ranks_file_path, _exp.ranks_file_path)

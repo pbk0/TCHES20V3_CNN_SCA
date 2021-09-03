@@ -62,6 +62,44 @@ def ascad_cnn_best(input_size=700, learning_rate=0.00001, classes=256):
     return model
 
 
+### CNN Best model
+def ascad_cnn_best2(input_size=1400, learning_rate=0.00001, classes=256):
+
+    assert learning_rate == 0.00001, "Do not change learning rate ... keep it default"
+
+    # From VGG16 design
+    input_shape = (input_size,1)
+    img_input = Input(shape=input_shape)
+    # Block 1
+    x = Conv1D(64, 11, strides=2, activation='relu', padding='same', name='block1_conv1')(img_input)
+    x = AveragePooling1D(2, strides=2, name='block1_pool')(x)
+    # Block 2
+    x = Conv1D(128, 11, activation='relu', padding='same', name='block2_conv1')(x)
+    x = AveragePooling1D(2, strides=2, name='block2_pool')(x)
+    # Block 3
+    x = Conv1D(256, 11, activation='relu', padding='same', name='block3_conv1')(x)
+    x = AveragePooling1D(2, strides=2, name='block3_pool')(x)
+    # Block 4
+    x = Conv1D(512, 11, activation='relu', padding='same', name='block4_conv1')(x)
+    x = AveragePooling1D(2, strides=2, name='block4_pool')(x)
+    # Block 5
+    x = Conv1D(512, 11, activation='relu', padding='same', name='block5_conv1')(x)
+    x = AveragePooling1D(2, strides=2, name='block5_pool')(x)
+    # Classification block
+    x = Flatten(name='flatten')(x)
+    x = Dense(4096, activation='relu', name='fc1')(x)
+    x = Dense(4096, activation='relu', name='fc2')(x)
+    x = Dense(classes, activation='softmax', name='predictions')(x)
+
+    inputs = img_input
+    # Create model.
+    model = Model(inputs, x, name='cnn_best2')
+    optimizer = RMSprop(lr=learning_rate)
+    model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+    return model
+
+
+
 def zaid_ascad_desync_0(input_size=700,learning_rate=0.00001,classes=256):
 	# Designing input layer
     input_shape = (input_size,1)
