@@ -464,8 +464,12 @@ class Experiment(t.NamedTuple):
 
     @property
     def ranks(self) -> np.ndarray:
-        # noinspection PyTypeChecker
-        return np.load(self.ranks_file_path.resolve().as_posix())
+        try:
+            # noinspection PyTypeChecker
+            return np.load(self.ranks_file_path.resolve().as_posix())
+        except Exception as e:
+            print(f"Error with {self.name}")
+            raise e
 
     @property
     def losses(self) -> t.Tuple[np.ndarray, np.ndarray]:
@@ -1238,5 +1242,20 @@ def main():
     print()
 
 
+def _filter_experiments():
+    _es = Experiment.get_existing_experiments_on_disk(
+        experiment_type=ExperimentType.early_stopping,
+        dataset=Dataset.ascad_r_0,
+        model=Model.aisy_id_mlp,
+    )
+    for _e in _es:
+        _mean_rank = np.mean(_e.ranks, axis=0)
+        _where = np.where(_mean_rank <= 0.)[0][0]
+        if _where == 11417:
+            print(_e.name)
+        print(_where)
+
+
 if __name__ == '__main__':
+    # _filter_experiments()
     main()
