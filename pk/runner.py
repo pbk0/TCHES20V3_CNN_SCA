@@ -731,6 +731,7 @@ class Experiment(t.NamedTuple):
                             type=ExperimentType[_type_dir.name],
                         )
                         if (_id_dir / _exp.is_migrated_file_path.name).exists():
+                            print(f"Migrating {_exp.name} ... skipping ... already done ...")
                             continue
                         _remote_history_file_path = _id_dir / _exp.history_file_path.name
                         _remote_model_file_path = _id_dir / _exp.model_file_path.name
@@ -746,8 +747,6 @@ class Experiment(t.NamedTuple):
                                 _exp.ranks_file_path.unlink(missing_ok=True)
                                 shutil.move(_remote_history_file_path, _exp.store_dir)
                                 shutil.move(_remote_ranks_file_path, _exp.store_dir)
-                        else:
-                            print(f"Migrating {_exp.name} ... skipping ... already done ...")
 
     @classmethod
     def report_it(cls):
