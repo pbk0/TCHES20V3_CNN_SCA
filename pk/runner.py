@@ -741,20 +741,30 @@ class Experiment(t.NamedTuple):
                         _remote_ranks_file_path = _id_dir / _exp.ranks_file_path.name
                         if (_id_dir / _exp.is_migrated_file_path.name).exists():
                             print(f"Migrating {_exp.name} ... skipping ... already done ...")
-                            _something_exists = False
+                            _something_exists_on_remote = False
                             if _remote_history_file_path.exists():
-                                _something_exists = True
+                                _something_exists_on_remote = True
                                 _remote_history_file_path.unlink()
                             if _remote_model_file_path.exists():
-                                _something_exists = True
+                                _something_exists_on_remote = True
                                 _remote_model_file_path.unlink()
                             if _remote_ranks_file_path.exists():
-                                _something_exists = True
+                                _something_exists_on_remote = True
                                 _remote_ranks_file_path.unlink()
-                            if _something_exists:
+                            if _something_exists_on_remote:
                                 print(f" ... something exists ... deleting ...")
                                 (_id_dir / _exp.is_migrated_file_path.name).unlink()
                                 _id_dir.rmdir()
+                                if _exp.history_file_path.exists():
+                                    _exp.history_file_path.unlink()
+                                if _exp.ranks_file_path.exists():
+                                    _exp.ranks_file_path.unlink()
+                            else:
+                                # check if necessary files are on this machine
+                                if not _exp.history_file_path.exists():
+                                    raise Exception("was expecting history file to be present on this machine")
+                                if not _exp.ranks_file_path.exists():
+                                    raise Exception("was expecting ranks file to be present on this machine")
                             continue
                         if _remote_history_file_path.exists() and _remote_ranks_file_path.exists():
                             try:
