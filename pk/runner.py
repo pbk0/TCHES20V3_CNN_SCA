@@ -281,7 +281,7 @@ MODELS_TO_TRY = [
     # Model.ascad_cnn2,
 ]
 DATASETS_TO_TRY = [
-    Dataset.ascad_0, Dataset.ascad_r_0,
+    Dataset.ascad_0, Dataset.ascad_r_0, Dataset.ascad_50, Dataset.ascad_100,
 ]
 EXPERIMENT_TYPES_TO_TRY = [
     ExperimentType.original,  ExperimentType.early_stopping,  # ExperimentType.over_fit,
@@ -744,6 +744,8 @@ class Experiment(t.NamedTuple):
                                 _exp.store_dir.mkdir(parents=True, exist_ok=True)
                                 shutil.move(_remote_history_file_path, _exp.history_file_path)
                                 shutil.move(_remote_ranks_file_path, _exp.ranks_file_path)
+                        else:
+                            print(f"Migrating {_exp.name} ... skipping ... already done ...")
 
     @classmethod
     def report_it(cls):
