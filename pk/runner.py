@@ -730,23 +730,48 @@ class Experiment(t.NamedTuple):
                             id=int(_id_dir.name),
                             type=ExperimentType[_type_dir.name],
                         )
-                        if (_id_dir / _exp.is_migrated_file_path.name).exists():
-                            print(f"Migrating {_exp.name} ... skipping ... already done ...")
+                        # on this disk do not keep any models
+                        if _exp.model_file_path.exists():
+                            _exp.model_file_path.unlink()
+                        if (_id_dir / _exp.is_executing_file_path.name).exists():
+                            print(f"Migrating {_exp.name} ... skipping ... someone is executing ...")
                             continue
                         _remote_history_file_path = _id_dir / _exp.history_file_path.name
                         _remote_model_file_path = _id_dir / _exp.model_file_path.name
                         _remote_ranks_file_path = _id_dir / _exp.ranks_file_path.name
-                        if _remote_history_file_path.exists() and _remote_ranks_file_path.exists():
-                            (_id_dir / _exp.is_migrated_file_path.name).touch()
-                            print(f"Migrating {_exp.name}")
+                        if (_id_dir / _exp.is_migrated_file_path.name).exists():
+                            print(f"Migrating {_exp.name} ... skipping ... already done ...")
+                            _something_exists = False
+                            if _remote_history_file_path.exists():
+                                _something_exists = True
+                                _remote_history_file_path.unlink()
                             if _remote_model_file_path.exists():
+                                _something_exists = True
+                                _remote_model_file_path.unlink()
+                            if _remote_ranks_file_path.exists():
+                                _something_exists = True
+                                _remote_ranks_file_path.unlink()
+                            if _something_exists:
+                                print(f" ... something exists ... deleting ...")
+                                (_id_dir / _exp.is_migrated_file_path.name).unlink()
+                                _id_dir.rmdir()
+                            continue
+                        if _remote_history_file_path.exists() and _remote_ranks_file_path.exists():
+                            try:
+                                (_id_dir / _exp.is_migrated_file_path.name).touch()
+                                print(f"Migrating {_exp.name}")
                                 if _remote_model_file_path.exists():
                                     _remote_model_file_path.unlink()
                                 _exp.store_dir.mkdir(parents=True, exist_ok=True)
-                                _exp.history_file_path.unlink(missing_ok=True)
-                                _exp.ranks_file_path.unlink(missing_ok=True)
-                                shutil.move(_remote_history_file_path, _exp.store_dir)
-                                shutil.move(_remote_ranks_file_path, _exp.store_dir)
+                                if _exp.history_file_path.exists():
+                                    _exp.history_file_path.unlink()
+                                if _exp.ranks_file_path.exists():
+                                    _exp.ranks_file_path.unlink()
+                                shutil.move(_remote_history_file_path, _exp.history_file_path)
+                                shutil.move(_remote_ranks_file_path, _exp.ranks_file_path)
+                            except Exception as e:
+                                (_id_dir / _exp.is_migrated_file_path.name).unlink()
+                                raise e
 
     @classmethod
     def report_it(cls):
