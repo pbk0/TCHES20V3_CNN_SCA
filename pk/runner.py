@@ -742,8 +742,10 @@ class Experiment(t.NamedTuple):
                                 if _remote_model_file_path.exists():
                                     _remote_model_file_path.unlink()
                                 _exp.store_dir.mkdir(parents=True, exist_ok=True)
-                                shutil.move(_remote_history_file_path, _exp.history_file_path)
-                                shutil.move(_remote_ranks_file_path, _exp.ranks_file_path)
+                                _exp.history_file_path.unlink(missing_ok=True)
+                                _exp.ranks_file_path.unlink(missing_ok=True)
+                                shutil.move(_remote_history_file_path, _exp.store_dir)
+                                shutil.move(_remote_ranks_file_path, _exp.store_dir)
                         else:
                             print(f"Migrating {_exp.name} ... skipping ... already done ...")
 
