@@ -324,22 +324,22 @@ DEFAULT_PARAMS = {
         ),
     },
     Dataset.ascad_0_noisy: {
-        # Model.s_eff_cnn_id: Params(
-        #     epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
-        #     preprocessor=Preprocessor.feature_standardization,
-        # ),
-        # Model.aisy_id_mlp: Params(
-        #     epochs=10, batch_size=32, learning_rate=5e-4, one_cycle_lr=False,
-        #     preprocessor=Preprocessor.feature_standardization,
-        # ),
-        # Model.s_eff_cnn_hw: Params(
-        #     epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
-        #     preprocessor=Preprocessor.feature_standardization,
-        # ),
-        # Model.aisy_hw_mlp: Params(
-        #     epochs=10, batch_size=32, learning_rate=5e-4, one_cycle_lr=False,
-        #     preprocessor=Preprocessor.feature_standardization,
-        # ),
+        Model.s_eff_cnn_id: Params(
+            epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
+            preprocessor=Preprocessor.feature_standardization,
+        ),
+        Model.aisy_id_mlp: Params(
+            epochs=10, batch_size=32, learning_rate=5e-4, one_cycle_lr=False,
+            preprocessor=Preprocessor.feature_standardization,
+        ),
+        Model.s_eff_cnn_hw: Params(
+            epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
+            preprocessor=Preprocessor.feature_standardization,
+        ),
+        Model.aisy_hw_mlp: Params(
+            epochs=10, batch_size=32, learning_rate=5e-4, one_cycle_lr=False,
+            preprocessor=Preprocessor.feature_standardization,
+        ),
     },
     Dataset.ascad_r_0: {
         Model.ascad_cnn2: Params(
@@ -493,22 +493,9 @@ class Experiment(t.NamedTuple):
 
     @property
     def ranks(self) -> np.ndarray:
-
         try:
-            # load zip
-            _zip_file_path = ROOT_DIR / "results.zip"
-            _zip_file = zipfile.ZipFile(_zip_file_path, 'a', zipfile.ZIP_BZIP2)
-
-            # archive name
-            _history_archive_name = "/".join(self.history_file_path.parts[-6:])
-            _ranks_archive_name = "/".join(self.ranks_file_path.parts[-6:])
-
-            # load file in memory
-            with _zip_file.open(_ranks_archive_name) as _file:
-                # return
-                # noinspection PyTypeChecker
-                return np.load(_file)
-
+            # noinspection PyTypeChecker
+            return np.load(self.ranks_file_path.resolve().as_posix())
         except Exception as e:
             print(f"Error with {self.name}")
             raise e
@@ -1258,5 +1245,5 @@ def _filter_experiments():
 
 
 if __name__ == '__main__':
-    _filter_experiments()
-    # main()
+    # _filter_experiments()
+    main()
