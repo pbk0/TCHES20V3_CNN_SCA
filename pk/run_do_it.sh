@@ -7,7 +7,8 @@ read num_jobs
 for i in $(seq 1 $num_jobs)
 do
   echo Executing job $i
-  # bsub python runner.py do_it
+  bsub python runner.py do_it
+  sleep 10
 done
 
 
