@@ -248,22 +248,22 @@ class Model(enum.Enum):
             elif dataset is Dataset.dpav4:
                 return models.noConv1_dpav4
         elif self is self.s_eff_cnn_hw:
-            if dataset is Dataset.ascad_0:
+            if dataset in [Dataset.ascad_0, Dataset.ascad_0_noisy]:
                 return models.noConv1_ascad_desync_0_hw
         elif self is self.aisy_hw_mlp:
-            if dataset is Dataset.ascad_0:
+            if dataset in [Dataset.ascad_0, Dataset.ascad_0_noisy]:
                 return models.aisy_ascad_f_hw_mlp
             if dataset is Dataset.ascad_r_0:
                 return models.aisy_ascad_r_hw_mlp
         elif self is self.aisy_id_mlp:
-            if dataset is Dataset.ascad_0:
+            if dataset in [Dataset.ascad_0, Dataset.ascad_0_noisy]:
                 return models.aisy_ascad_f_id_mlp
             if dataset is Dataset.ascad_r_0:
                 return models.aisy_ascad_r_id_mlp
         else:
-            raise Exception(f"Model {self.model} is not supported")
+            raise Exception(f"Model `{self}` is not supported ...")
         raise Exception(
-            f"`{dataset}` dataset cannot be used with `{self.model}` model"
+            f"Dataset `{dataset}` cannot be used with model `{self}` ..."
         )
 
 
@@ -635,7 +635,7 @@ class Experiment(t.NamedTuple):
             print(f" > {_experiment.name} ... will train and rank ...")
             if not _experiment.store_dir.exists():
                 _experiment.store_dir.mkdir(parents=True)
-            _experiment.is_executing_file_path.touch()
+            _experiment.is_executing_file_path.touch(exist_ok=False)
 
             # ------------------------------------------------ 04
             # get params
