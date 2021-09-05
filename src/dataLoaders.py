@@ -49,7 +49,7 @@ AES_sbox_inv=[
     0x17,0x2b,0x04,0x7e,0xba,0x77,0xd6,0x26,0xe1,0x69,0x14,0x63,0x55,0x21,0x0c,0x7d
 ]
 
-def load_ascad(ascad_database_file):
+def load_ascad(ascad_database_file, add_noise: float = None):
     f  = h5py.File(ascad_database_file, "r")
     
     X_profiling = f['Profiling_traces/traces'][()]
@@ -69,6 +69,23 @@ def load_ascad(ascad_database_file):
             targets[i, k] = AES_sbox[k^pt_attack[i,2]]
     
     f.close()
+
+    # add some noise
+    if add_noise is not None:
+        # need to cast to float
+        X_profiling = X_profiling.astype(np.float32)
+        X_attack = X_attack.astype(np.float32)
+
+        # create noise
+        _noise_std = X_profiling.std(axis=0) * add_noise
+        np.random.seed(123456)
+        noise_profiling = np.random.random(X_profiling.shape).astype(np.float32) * _noise_std
+        noise_attack = np.random.random(X_attack.shape).astype(np.float32) * _noise_std
+        np.random.seed(None)
+
+        # add noise
+        X_profiling += noise_profiling
+        X_attack += noise_attack
     
     return X_profiling, Y_profiling, X_attack, targets, real_key[2]
 

@@ -93,6 +93,7 @@ def compute_ranks(predictions, all_guess_targets, correct_key, num_attacks) -> n
 
 class Dataset(enum.Enum):
     ascad_0 = enum.auto()
+    ascad_0_noisy = enum.auto()
     ascad_r_0 = enum.auto()
     ascad_50 = enum.auto()
     ascad_100 = enum.auto()
@@ -104,8 +105,10 @@ class Dataset(enum.Enum):
     def rank_plot_until(self) -> int:
         if self in [self.ascad_0, self.ascad_50, self.ascad_100, ]:
             return 250
-        if self in [self.ascad_r_0, ]:
+        elif self in [self.ascad_r_0, ]:
             return 1000
+        elif self in [self.ascad_0_noisy, ]:
+            return 3000
         elif self is self.aes_hd:
             return 1200
         elif self is self.aes_rd:
@@ -122,6 +125,8 @@ class Dataset(enum.Enum):
         # Load a dataset (see src/dataLoaders.py)
         if self is self.ascad_0:
             _data = dataLoaders.load_ascad(f'./../datasets/ASCAD_dataset/ASCAD.h5')
+        elif self is self.ascad_0_noisy:
+            _data = dataLoaders.load_ascad(f'./../datasets/ASCAD_dataset/ASCAD.h5', add_noise=2.0)
         elif self is self.ascad_r_0:
             _data = dataLoaders.load_ascad(f'./../datasets/ascad-variable.h5')
         elif self is self.ascad_50:
@@ -230,7 +235,7 @@ class Model(enum.Enum):
             elif dataset is Dataset.dpav4:
                 return models.zaid_dpav4
         elif self is self.s_eff_cnn_id:
-            if dataset is Dataset.ascad_0:
+            if dataset in [Dataset.ascad_0, Dataset.ascad_0_noisy]:
                 return models.noConv1_ascad_desync_0
             elif dataset is Dataset.ascad_50:
                 return models.noConv1_ascad_desync_50
@@ -282,6 +287,7 @@ MODELS_TO_TRY = [
 ]
 DATASETS_TO_TRY = [
     Dataset.ascad_0, Dataset.ascad_r_0, Dataset.ascad_50, Dataset.ascad_100,
+    Dataset.ascad_0_noisy,
 ]
 EXPERIMENT_TYPES_TO_TRY = [
     ExperimentType.original,  ExperimentType.early_stopping,  # ExperimentType.over_fit,
@@ -316,6 +322,24 @@ DEFAULT_PARAMS = {
             epochs=10, batch_size=32, learning_rate=5e-4, one_cycle_lr=False,
             preprocessor=Preprocessor.feature_standardization,
         ),
+    },
+    Dataset.ascad_0_noisy: {
+        # Model.s_eff_cnn_id: Params(
+        #     epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
+        #     preprocessor=Preprocessor.feature_standardization,
+        # ),
+        # Model.aisy_id_mlp: Params(
+        #     epochs=10, batch_size=32, learning_rate=5e-4, one_cycle_lr=False,
+        #     preprocessor=Preprocessor.feature_standardization,
+        # ),
+        # Model.s_eff_cnn_hw: Params(
+        #     epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
+        #     preprocessor=Preprocessor.feature_standardization,
+        # ),
+        # Model.aisy_hw_mlp: Params(
+        #     epochs=10, batch_size=32, learning_rate=5e-4, one_cycle_lr=False,
+        #     preprocessor=Preprocessor.feature_standardization,
+        # ),
     },
     Dataset.ascad_r_0: {
         Model.ascad_cnn2: Params(
@@ -435,18 +459,23 @@ class Experiment(t.NamedTuple):
         return self.is_executing_file_path.exists()
 
     @property
-    def is_migrated_file_path(self) -> pathlib.Path:
-        return self.store_dir / "__is_migrated__"
-
-    @property
-    def is_migrated(self) -> bool:
-        return self.is_migrated_file_path.exists()
+    def is_zipped(self) -> bool:
+        _zip_file_path = ROOT_DIR / "results.zip"
+        if _zip_file_path.exists():
+            _zip_file = zipfile.ZipFile(_zip_file_path, 'r')
+            _ranks_archive_name = "/".join(self.ranks_file_path.parts[-6:])
+            if _ranks_archive_name in _zip_file.NameToInfo.keys():
+                return True
+            else:
+                return False
+        else:
+            return False
 
     @property
     def is_done(self) -> bool:
         if self.is_executing:
             return False
-        if self.is_migrated:
+        if self.is_zipped:
             return True
         if self.history_file_path.exists() and self.ranks_file_path.exists():
             return True
@@ -464,9 +493,22 @@ class Experiment(t.NamedTuple):
 
     @property
     def ranks(self) -> np.ndarray:
+
         try:
-            # noinspection PyTypeChecker
-            return np.load(self.ranks_file_path.resolve().as_posix())
+            # load zip
+            _zip_file_path = ROOT_DIR / "results.zip"
+            _zip_file = zipfile.ZipFile(_zip_file_path, 'a', zipfile.ZIP_BZIP2)
+
+            # archive name
+            _history_archive_name = "/".join(self.history_file_path.parts[-6:])
+            _ranks_archive_name = "/".join(self.ranks_file_path.parts[-6:])
+
+            # load file in memory
+            with _zip_file.open(_ranks_archive_name) as _file:
+                # return
+                # noinspection PyTypeChecker
+                return np.load(_file)
+
         except Exception as e:
             print(f"Error with {self.name}")
             raise e
@@ -721,71 +763,6 @@ class Experiment(t.NamedTuple):
             # as things are over release semaphore
             _experiment.is_executing_file_path.unlink()
             _experiment.model_file_path.unlink()
-
-    @classmethod
-    def migrate_it(cls, remote_location: pathlib.Path = pathlib.Path("Z:\\TCHES20V3_CNN_SCA\\pk\\results")):
-        for _type_dir in remote_location.iterdir():
-            for _dataset_dir in _type_dir.iterdir():
-                for _model_dir in _dataset_dir.iterdir():
-                    for _id_dir in _model_dir.iterdir():
-                        _exp = Experiment(
-                            dataset=Dataset[_dataset_dir.name],
-                            model=Model[_model_dir.name],
-                            id=int(_id_dir.name),
-                            type=ExperimentType[_type_dir.name],
-                        )
-                        # on this disk do not keep any models
-                        if _exp.model_file_path.exists():
-                            _exp.model_file_path.unlink()
-                        if (_id_dir / _exp.is_executing_file_path.name).exists():
-                            print(f"Migrating {_exp.name} ... skipping ... someone is executing ...")
-                            continue
-                        _remote_history_file_path = _id_dir / _exp.history_file_path.name
-                        _remote_model_file_path = _id_dir / _exp.model_file_path.name
-                        _remote_ranks_file_path = _id_dir / _exp.ranks_file_path.name
-                        if (_id_dir / _exp.is_migrated_file_path.name).exists():
-                            print(f"Migrating {_exp.name} ... skipping ... already done ...")
-                            _something_exists_on_remote = False
-                            if _remote_history_file_path.exists():
-                                _something_exists_on_remote = True
-                                _remote_history_file_path.unlink()
-                            if _remote_model_file_path.exists():
-                                _something_exists_on_remote = True
-                                _remote_model_file_path.unlink()
-                            if _remote_ranks_file_path.exists():
-                                _something_exists_on_remote = True
-                                _remote_ranks_file_path.unlink()
-                            if _something_exists_on_remote:
-                                print(f" ... something exists ... deleting ...")
-                                (_id_dir / _exp.is_migrated_file_path.name).unlink()
-                                _id_dir.rmdir()
-                                if _exp.history_file_path.exists():
-                                    _exp.history_file_path.unlink()
-                                if _exp.ranks_file_path.exists():
-                                    _exp.ranks_file_path.unlink()
-                            else:
-                                # check if necessary files are on this machine
-                                if not _exp.history_file_path.exists():
-                                    raise Exception("was expecting history file to be present on this machine")
-                                if not _exp.ranks_file_path.exists():
-                                    raise Exception("was expecting ranks file to be present on this machine")
-                            continue
-                        if _remote_history_file_path.exists() and _remote_ranks_file_path.exists():
-                            try:
-                                (_id_dir / _exp.is_migrated_file_path.name).touch()
-                                print(f"Migrating {_exp.name}")
-                                if _remote_model_file_path.exists():
-                                    _remote_model_file_path.unlink()
-                                _exp.store_dir.mkdir(parents=True, exist_ok=True)
-                                if _exp.history_file_path.exists():
-                                    _exp.history_file_path.unlink()
-                                if _exp.ranks_file_path.exists():
-                                    _exp.ranks_file_path.unlink()
-                                shutil.move(_remote_history_file_path, _exp.history_file_path)
-                                shutil.move(_remote_ranks_file_path, _exp.ranks_file_path)
-                            except Exception as e:
-                                (_id_dir / _exp.is_migrated_file_path.name).unlink()
-                                raise e
 
     @classmethod
     def report_it(cls):
@@ -1202,18 +1179,45 @@ class Experiment(t.NamedTuple):
 
     @classmethod
     def zip_it(cls):
-        _zip_file_path = pathlib.Path("results.zip")
-        if _zip_file_path.exists():
-            _zip_file_path.unlink()
-        _zip_file = zipfile.ZipFile("results.zip", 'w')
-        for _experiment in cls.get_existing_experiments_on_disk():
-            if _experiment.is_done:
-                _zip_file.write(
-                    _experiment.history_file_path, arcname=_experiment.history_file_path.as_posix()
+        # get experiments on disk
+        _existing_experiments_on_disk = cls.get_existing_experiments_on_disk()
+
+        # if any of the experiment is already zipped then raise error
+        for _exp in _existing_experiments_on_disk:
+            if _exp.is_zipped:
+                raise Exception(
+                    f"Experiment {_exp.name} is already zipped ..."
                 )
-                _zip_file.write(
-                    _experiment.ranks_file_path, arcname=_experiment.ranks_file_path.as_posix()
-                )
+
+        # make and/or load zip
+        _zip_file_path = ROOT_DIR / "results.zip"
+        if not _zip_file_path.exists():
+            _zip_file = zipfile.ZipFile(_zip_file_path, 'w', zipfile.ZIP_BZIP2)
+            _zip_file.close()
+        _zip_file = zipfile.ZipFile(_zip_file_path, 'a', zipfile.ZIP_BZIP2)
+
+        # zip it
+        for _experiment in _existing_experiments_on_disk:
+
+            # log
+            print(f"Zipping {_experiment.name} ...")
+
+            # write to archive
+            _history_archive_name = "/".join(_experiment.history_file_path.parts[-6:])
+            _ranks_archive_name = "/".join(_experiment.ranks_file_path.parts[-6:])
+            _zip_file.write(
+                _experiment.history_file_path, arcname=_history_archive_name
+            )
+            _zip_file.write(
+                _experiment.ranks_file_path, arcname=_ranks_archive_name
+            )
+
+            # delete files
+            for _ in _experiment.store_dir.iterdir():
+                _.unlink()
+            _experiment.store_dir.rmdir()
+
+        # close zip finally
         _zip_file.close()
 
 
@@ -1232,8 +1236,6 @@ def main():
         Experiment.wipe_it()
     elif _mode == 'zip_it':
         Experiment.zip_it()
-    elif _mode == 'migrate_it':
-        Experiment.migrate_it()
     else:
         raise Exception(f"Unknown {_mode}")
 
@@ -1249,13 +1251,12 @@ def _filter_experiments():
         model=Model.aisy_id_mlp,
     )
     for _e in _es:
-        _mean_rank = np.mean(_e.ranks, axis=0)
-        _where = np.where(_mean_rank <= 0.)[0][0]
-        if _where == 11417:
-            print(_e.name)
-        print(_where)
+        print(_e.ranks)
+        # _mean_rank = np.mean(_e.ranks, axis=0)
+        # _where = np.where(_mean_rank <= 0.)[0][0]
+        # print(_where)
 
 
 if __name__ == '__main__':
-    # _filter_experiments()
-    main()
+    _filter_experiments()
+    # main()
