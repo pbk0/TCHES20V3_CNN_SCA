@@ -8,7 +8,7 @@ for i in $(seq 1 $num_jobs)
 do
   echo Executing job $i
   bsub python runner.py do_it
-  sleep 10
+  sleep 5
 done
 
 
