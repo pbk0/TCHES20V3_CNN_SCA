@@ -32,6 +32,26 @@ NUM_ATTACKS_PER_EXPERIMENT = 100
 NUM_EXPERIMENTS = 50
 
 
+def fig_update_layout(_fig):
+    # xaxes and yaxes
+    # https://plotly.com/python/axes/
+    # _fig.update_xaxes(title_font=dict(size=18, family='Courier', color='crimson'))
+    # _fig.update_yaxes(title_font=dict(size=18, family='Courier', color='crimson'))
+
+    # template
+    # https://plotly.com/python/templates/
+    # _template = go.layout.Template()
+    _template = dict(
+        layout=go.Layout(
+            title_font=dict(family="Rockwell", size=24),
+            xaxis=dict(showgrid=False),
+            yaxis=dict(showgrid=False),
+        ),
+    )
+    _template = 'ggplot2'
+    _fig.update_layout(template=_template)
+
+
 def preprocess_predictions(predictions, all_guess_targets, num_examples, num_guesses) -> np.ndarray:
 
     # make copy
@@ -973,6 +993,12 @@ class Experiment(t.NamedTuple):
             _plot_dir = PLOTS_DIR / _plot_relative_path
             if not _plot_dir.exists():
                 _plot_dir.mkdir(parents=True)
+            fig_update_layout(_avg_rank_fig)
+            # fig_update_layout(_rank_variance_fig)
+            fig_update_layout(_train_loss_fig)
+            fig_update_layout(_val_loss_fig)
+            fig_update_layout(_train_acc_fig)
+            fig_update_layout(_val_acc_fig)
             _avg_rank_fig.write_image((_plot_dir / f"average_rank.svg").as_posix(), engine='kaleido')
             # _rank_variance_fig.write_image((_plot_dir / f"rank_variance.svg").as_posix(), engine='kaleido')
             _train_loss_fig.write_image((_plot_dir / f"train_loss.svg").as_posix(), engine='kaleido')
@@ -1031,19 +1057,20 @@ class Experiment(t.NamedTuple):
             # ----------------------------------------------- 03.03
             # make violin figure
             _violin_df = pd.DataFrame(_violin_fig_data[_type][_dataset])
-            _violin_fig = px.violin(
+            _violin_fig = px.strip(
                 _violin_df,
                 y="min traces needed for average rank to be zero",
                 x="model",
                 color="model",
-                box=False,
-                points="all",
+                # box=False,
+                # points="all",
                 hover_data=_violin_df.columns,
                 title="Distribution of min traces needed for average rank to be zero",
             )
 
             # ----------------------------------------------- 03.04
             # loop over models for the current type and dataset
+            _violin_text_ann_data = {}
             for _model in _filter_report_df.model.unique():
 
                 # ------------------------------------------- 03.04.01
@@ -1093,14 +1120,32 @@ class Experiment(t.NamedTuple):
                     _bgcolor = 'pink'
                     _bordercolor = 'red'
                 _text += f"<br>min: {_min_traces_to_converge}<br>max: {_max_traces_to_converge}"
+                _violin_text_ann_data[_model] = dict(
+                    text=_text, bordercolor=_bordercolor, bgcolor=_bgcolor,
+                    min_traces_to_converge=_min_traces_to_converge,
+                    max_traces_to_converge=_max_traces_to_converge,
+                )
+
+            # compute min max over all models
+            all_min_traces_to_converge = np.inf
+            all_max_traces_to_converge = 0
+            for _model, _ann_data in _violin_text_ann_data.items():
+                all_min_traces_to_converge = min(
+                    all_min_traces_to_converge, _ann_data['min_traces_to_converge']
+                )
+                all_max_traces_to_converge = max(
+                    all_max_traces_to_converge, _ann_data['max_traces_to_converge']
+                )
+
+            # add annotation
+            for _model, _ann_data in _violin_text_ann_data.items():
                 _violin_fig.add_annotation(
                     x=_model,
-                    # todo ................
-                    # y=_violin_y_max + 2,
-                    text=_text,
-                    # bgcolor=_bgcolor,
-                    bordercolor=_bordercolor,
-                    showarrow=True,
+                    y=all_max_traces_to_converge + 20,
+                    text=_ann_data['text'],
+                    bgcolor=_ann_data['bgcolor'],
+                    bordercolor=_ann_data['bordercolor'],
+                    showarrow=False,
                 )
 
             # ----------------------------------------------- 03.05
@@ -1120,6 +1165,7 @@ class Experiment(t.NamedTuple):
             # ----------------------------------------------- 03.06
             # write violin plot
             _violin_fig_path = PLOTS_DIR / _type / _dataset / "violin.svg"
+            fig_update_layout(_violin_fig)
             _violin_fig.write_image(_violin_fig_path.as_posix(), engine='kaleido')
 
         # --------------------------------------------------- 04
