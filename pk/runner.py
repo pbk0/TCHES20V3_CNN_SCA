@@ -1070,13 +1070,14 @@ class Experiment(t.NamedTuple):
             # ----------------------------------------------- 03.03
             # make violin figure
             _violin_df = pd.DataFrame(_violin_fig_data[_type][_dataset])
-            _violin_fig = px.strip(
+            # _violin_fig = px.strip(
+            _violin_fig = px.violin(
                 _violin_df,
                 y="min traces needed for average rank to be zero",
                 x="model",
                 color="model",
-                # box=False,
-                # points="all",
+                box=False,
+                points="all",
                 hover_data=_violin_df.columns,
                 title="Distribution of min traces needed for average rank to be zero",
             )
@@ -1149,12 +1150,13 @@ class Experiment(t.NamedTuple):
                 all_max_traces_to_converge = max(
                     all_max_traces_to_converge, _ann_data['max_traces_to_converge']
                 )
+            _y_offset = (all_max_traces_to_converge - all_min_traces_to_converge) * 0.3
 
             # add annotation
             for _model, _ann_data in _violin_text_ann_data.items():
                 _violin_fig.add_annotation(
                     x=_model,
-                    y=all_max_traces_to_converge + 20,
+                    y=all_max_traces_to_converge + _y_offset,
                     text=_ann_data['text'],
                     bgcolor=_ann_data['bgcolor'],
                     bordercolor=_ann_data['bordercolor'],
