@@ -115,6 +115,7 @@ class Dataset(enum.Enum):
     ascad_0 = enum.auto()
     ascad_0_noisy = enum.auto()
     ascad_r_0 = enum.auto()
+    ascad_r_0_noisy = enum.auto()
     ascad_50 = enum.auto()
     ascad_100 = enum.auto()
     aes_hd = enum.auto()
@@ -127,7 +128,7 @@ class Dataset(enum.Enum):
             return 250
         elif self in [self.ascad_r_0, ]:
             return 1000
-        elif self in [self.ascad_0_noisy, ]:
+        elif self in [self.ascad_0_noisy, self.ascad_r_0_noisy]:
             return 3000
         elif self is self.aes_hd:
             return 1200
@@ -149,6 +150,8 @@ class Dataset(enum.Enum):
             _data = dataLoaders.load_ascad(f'./../datasets/ASCAD_dataset/ASCAD.h5', add_noise=2.0)
         elif self is self.ascad_r_0:
             _data = dataLoaders.load_ascad(f'./../datasets/ascad-variable.h5')
+        elif self is self.ascad_r_0_noisy:
+            _data = dataLoaders.load_ascad(f'./../datasets/ascad-variable.h5', add_noise=2.0)
         elif self is self.ascad_50:
             _data = dataLoaders.load_ascad(f'./../datasets/ASCAD_dataset/ASCAD_desync50.h5')
         elif self is self.ascad_100:
@@ -255,7 +258,7 @@ class Model(enum.Enum):
             elif dataset is Dataset.dpav4:
                 return models.zaid_dpav4
         elif self is self.s_eff_cnn_id:
-            if dataset in [Dataset.ascad_0, Dataset.ascad_0_noisy]:
+            if dataset in [Dataset.ascad_0, Dataset.ascad_0_noisy, ]:
                 return models.noConv1_ascad_desync_0
             elif dataset is Dataset.ascad_50:
                 return models.noConv1_ascad_desync_50
@@ -268,17 +271,17 @@ class Model(enum.Enum):
             elif dataset is Dataset.dpav4:
                 return models.noConv1_dpav4
         elif self is self.s_eff_cnn_hw:
-            if dataset in [Dataset.ascad_0, Dataset.ascad_0_noisy]:
+            if dataset in [Dataset.ascad_0, Dataset.ascad_0_noisy, ]:
                 return models.noConv1_ascad_desync_0_hw
         elif self is self.aisy_hw_mlp:
-            if dataset in [Dataset.ascad_0, Dataset.ascad_0_noisy]:
+            if dataset in [Dataset.ascad_0, Dataset.ascad_0_noisy, ]:
                 return models.aisy_ascad_f_hw_mlp
-            if dataset is Dataset.ascad_r_0:
+            if dataset in [Dataset.ascad_r_0, Dataset.ascad_r_0_noisy, ]:
                 return models.aisy_ascad_r_hw_mlp
         elif self is self.aisy_id_mlp:
-            if dataset in [Dataset.ascad_0, Dataset.ascad_0_noisy]:
+            if dataset in [Dataset.ascad_0, Dataset.ascad_0_noisy, ]:
                 return models.aisy_ascad_f_id_mlp
-            if dataset is Dataset.ascad_r_0:
+            if dataset in [Dataset.ascad_r_0, Dataset.ascad_r_0_noisy, ]:
                 return models.aisy_ascad_r_id_mlp
         else:
             raise Exception(f"Model `{self}` is not supported ...")
@@ -307,7 +310,7 @@ MODELS_TO_TRY = [
 ]
 DATASETS_TO_TRY = [
     Dataset.ascad_0, Dataset.ascad_r_0, Dataset.ascad_50, Dataset.ascad_100,
-    Dataset.ascad_0_noisy,
+    Dataset.ascad_0_noisy, Dataset.ascad_r_0_noisy,
 ]
 EXPERIMENT_TYPES_TO_TRY = [
     ExperimentType.original,  ExperimentType.early_stopping,  # ExperimentType.over_fit,
@@ -366,6 +369,16 @@ DEFAULT_PARAMS = {
             epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
             preprocessor=Preprocessor.none,
         ),
+        Model.aisy_hw_mlp: Params(
+            epochs=10, batch_size=32, learning_rate=5e-4, one_cycle_lr=False,
+            preprocessor=Preprocessor.feature_standardization,
+        ),
+        Model.aisy_id_mlp: Params(
+            epochs=10, batch_size=32, learning_rate=5e-4, one_cycle_lr=False,
+            preprocessor=Preprocessor.feature_standardization,
+        ),
+    },
+    Dataset.ascad_r_0_noisy: {
         Model.aisy_hw_mlp: Params(
             epochs=10, batch_size=32, learning_rate=5e-4, one_cycle_lr=False,
             preprocessor=Preprocessor.feature_standardization,
