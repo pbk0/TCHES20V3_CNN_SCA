@@ -1294,15 +1294,14 @@ def main():
 
 def _filter_experiments():
     _es = Experiment.get_existing_experiments_on_disk(
-        experiment_type=ExperimentType.early_stopping,
-        dataset=Dataset.ascad_r_0,
+        experiment_type=ExperimentType.original,
+        dataset=Dataset.ascad_r_0_noisy,
         model=Model.aisy_id_mlp,
     )
     for _e in _es:
-        print(_e.ranks)
-        # _mean_rank = np.mean(_e.ranks, axis=0)
-        # _where = np.where(_mean_rank <= 0.)[0][0]
-        # print(_where)
+        _mean_rank = np.mean(_e.ranks, axis=0)
+        _where = np.where(_mean_rank <= 0.)[0][0]
+        print(_e.id, _where)
 
 
 if __name__ == '__main__':
