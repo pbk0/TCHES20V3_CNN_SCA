@@ -112,23 +112,25 @@ def compute_ranks(predictions, all_guess_targets, correct_key, num_attacks) -> n
 
 
 class Dataset(enum.Enum):
-    ascad_0 = enum.auto()
-    ascad_0_noisy = enum.auto()
-    ascad_r_0 = enum.auto()
-    ascad_r_0_noisy = enum.auto()
-    ascad_50 = enum.auto()
-    ascad_100 = enum.auto()
+    ascad_v1_fk_0 = enum.auto()
+    ascad_v1_fk_0_noisy = enum.auto()
+    ascad_v1_vk_0 = enum.auto()
+    ascad_v1_vk_0_noisy = enum.auto()
+    ascad_v1_fk_50 = enum.auto()
+    ascad_v1_fk_100 = enum.auto()
     aes_hd = enum.auto()
     aes_rd = enum.auto()
     dpav4 = enum.auto()
 
     @property
     def rank_plot_until(self) -> int:
-        if self in [self.ascad_0, self.ascad_50, self.ascad_100, ]:
+        if self in [
+            self.ascad_v1_fk_0, self.ascad_v1_fk_50, self.ascad_v1_fk_100, 
+        ]:
             return 250
-        elif self in [self.ascad_r_0, ]:
+        elif self in [self.ascad_v1_vk_0, ]:
             return 1000
-        elif self in [self.ascad_0_noisy, self.ascad_r_0_noisy]:
+        elif self in [self.ascad_v1_fk_0_noisy, self.ascad_v1_vk_0_noisy]:
             return 3000
         elif self is self.aes_hd:
             return 1200
@@ -144,17 +146,17 @@ class Dataset(enum.Enum):
     ) -> t.Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 
         # Load a dataset (see src/dataLoaders.py)
-        if self is self.ascad_0:
+        if self is self.ascad_v1_fk_0:
             _data = dataLoaders.load_ascad(f'./../datasets/ASCAD_dataset/ASCAD.h5')
-        elif self is self.ascad_0_noisy:
+        elif self is self.ascad_v1_fk_0_noisy:
             _data = dataLoaders.load_ascad(f'./../datasets/ASCAD_dataset/ASCAD.h5', add_noise=2.0)
-        elif self is self.ascad_r_0:
+        elif self is self.ascad_v1_vk_0:
             _data = dataLoaders.load_ascad(f'./../datasets/ascad-variable.h5')
-        elif self is self.ascad_r_0_noisy:
+        elif self is self.ascad_v1_vk_0_noisy:
             _data = dataLoaders.load_ascad(f'./../datasets/ascad-variable.h5', add_noise=2.0)
-        elif self is self.ascad_50:
+        elif self is self.ascad_v1_fk_50:
             _data = dataLoaders.load_ascad(f'./../datasets/ASCAD_dataset/ASCAD_desync50.h5')
-        elif self is self.ascad_100:
+        elif self is self.ascad_v1_fk_100:
             _data = dataLoaders.load_ascad(f'./../datasets/ASCAD_dataset/ASCAD_desync100.h5')
         elif self is self.aes_hd:
             _data = dataLoaders.load_aes_hd(f'./../datasets/AES_HD_dataset/')
@@ -236,20 +238,20 @@ class Model(enum.Enum):
     # noinspection DuplicatedCode
     def make_fn(self, dataset: Dataset) -> t.Callable:
         if self in [self.ascad_mlp, ]:
-            if dataset in [Dataset.ascad_0, Dataset.ascad_50, Dataset.ascad_100, ]:
+            if dataset in [Dataset.ascad_v1_fk_0, Dataset.ascad_v1_fk_50, Dataset.ascad_v1_fk_100, ]:
                 return models.ascad_mlp_best
         elif self in [self.ascad_cnn, ]:
-            if dataset in [Dataset.ascad_0, Dataset.ascad_50, Dataset.ascad_100, ]:
+            if dataset in [Dataset.ascad_v1_fk_0, Dataset.ascad_v1_fk_50, Dataset.ascad_v1_fk_100, ]:
                 return models.ascad_cnn_best
         elif self in [self.ascad_cnn2, ]:
-            if dataset in [Dataset.ascad_r_0, ]:
+            if dataset in [Dataset.ascad_v1_vk_0, ]:
                 return models.ascad_cnn_best2
         elif self is self.eff_cnn:
-            if dataset is Dataset.ascad_0:
+            if dataset is Dataset.ascad_v1_fk_0:
                 return models.zaid_ascad_desync_0
-            elif dataset is Dataset.ascad_50:
+            elif dataset is Dataset.ascad_v1_fk_50:
                 return models.zaid_ascad_desync_50
-            elif dataset is Dataset.ascad_100:
+            elif dataset is Dataset.ascad_v1_fk_100:
                 return models.zaid_ascad_desync_100
             elif dataset is Dataset.aes_hd:
                 return models.zaid_aes_hd
@@ -258,11 +260,11 @@ class Model(enum.Enum):
             elif dataset is Dataset.dpav4:
                 return models.zaid_dpav4
         elif self is self.s_eff_cnn_id:
-            if dataset in [Dataset.ascad_0, Dataset.ascad_0_noisy, ]:
+            if dataset in [Dataset.ascad_v1_fk_0, Dataset.ascad_v1_fk_0_noisy, ]:
                 return models.noConv1_ascad_desync_0
-            elif dataset is Dataset.ascad_50:
+            elif dataset is Dataset.ascad_v1_fk_50:
                 return models.noConv1_ascad_desync_50
-            elif dataset is Dataset.ascad_100:
+            elif dataset is Dataset.ascad_v1_fk_100:
                 return models.noConv1_ascad_desync_100
             elif dataset is Dataset.aes_hd:
                 return models.noConv1_aes_hd
@@ -271,18 +273,18 @@ class Model(enum.Enum):
             elif dataset is Dataset.dpav4:
                 return models.noConv1_dpav4
         elif self is self.s_eff_cnn_hw:
-            if dataset in [Dataset.ascad_0, Dataset.ascad_0_noisy, ]:
+            if dataset in [Dataset.ascad_v1_fk_0, Dataset.ascad_v1_fk_0_noisy, ]:
                 return models.noConv1_ascad_desync_0_hw
         elif self is self.aisy_hw_mlp:
-            if dataset in [Dataset.ascad_0, Dataset.ascad_0_noisy, ]:
+            if dataset in [Dataset.ascad_v1_fk_0, Dataset.ascad_v1_fk_0_noisy, ]:
                 return models.aisy_ascad_f_hw_mlp
-            if dataset in [Dataset.ascad_r_0, Dataset.ascad_r_0_noisy, ]:
-                return models.aisy_ascad_r_hw_mlp
+            if dataset in [Dataset.ascad_v1_vk_0, Dataset.ascad_v1_vk_0_noisy, ]:
+                return models.aisy_ascad_v1_vk_hw_mlp
         elif self is self.aisy_id_mlp:
-            if dataset in [Dataset.ascad_0, Dataset.ascad_0_noisy, ]:
+            if dataset in [Dataset.ascad_v1_fk_0, Dataset.ascad_v1_fk_0_noisy, ]:
                 return models.aisy_ascad_f_id_mlp
-            if dataset in [Dataset.ascad_r_0, Dataset.ascad_r_0_noisy, ]:
-                return models.aisy_ascad_r_id_mlp
+            if dataset in [Dataset.ascad_v1_vk_0, Dataset.ascad_v1_vk_0_noisy, ]:
+                return models.aisy_ascad_v1_vk_id_mlp
         else:
             raise Exception(f"Model `{self}` is not supported ...")
         raise Exception(
@@ -302,6 +304,7 @@ class ExperimentType(enum.Enum):
     original = enum.auto()
     early_stopping = enum.auto()
     over_fit = enum.auto()
+    mcovc = enum.auto()
 
 
 MODELS_TO_TRY = [
@@ -309,14 +312,14 @@ MODELS_TO_TRY = [
     # Model.ascad_cnn2,
 ]
 DATASETS_TO_TRY = [
-    Dataset.ascad_0, Dataset.ascad_r_0, Dataset.ascad_50, Dataset.ascad_100,
-    Dataset.ascad_0_noisy, Dataset.ascad_r_0_noisy,
+    Dataset.ascad_v1_fk_0, Dataset.ascad_v1_vk_0, Dataset.ascad_v1_fk_50, Dataset.ascad_v1_fk_100,
+    Dataset.ascad_v1_fk_0_noisy, Dataset.ascad_v1_vk_0_noisy,
 ]
 EXPERIMENT_TYPES_TO_TRY = [
     ExperimentType.original,  ExperimentType.early_stopping,  # ExperimentType.over_fit,
 ]
 DEFAULT_PARAMS = {
-    Dataset.ascad_0: {
+    Dataset.ascad_v1_fk_0: {
         Model.ascad_mlp: Params(
             epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
             preprocessor=Preprocessor.none,
@@ -346,7 +349,7 @@ DEFAULT_PARAMS = {
             preprocessor=Preprocessor.feature_standardization,
         ),
     },
-    Dataset.ascad_0_noisy: {
+    Dataset.ascad_v1_fk_0_noisy: {
         Model.s_eff_cnn_id: Params(
             epochs=50, batch_size=50, learning_rate=5e-3, one_cycle_lr=True,
             preprocessor=Preprocessor.feature_standardization,
@@ -364,7 +367,7 @@ DEFAULT_PARAMS = {
             preprocessor=Preprocessor.feature_standardization,
         ),
     },
-    Dataset.ascad_r_0: {
+    Dataset.ascad_v1_vk_0: {
         Model.ascad_cnn2: Params(
             epochs=75, batch_size=200, learning_rate=0.00001, one_cycle_lr=False,
             preprocessor=Preprocessor.none,
@@ -378,7 +381,7 @@ DEFAULT_PARAMS = {
             preprocessor=Preprocessor.feature_standardization,
         ),
     },
-    Dataset.ascad_r_0_noisy: {
+    Dataset.ascad_v1_vk_0_noisy: {
         Model.aisy_hw_mlp: Params(
             epochs=10, batch_size=32, learning_rate=5e-4, one_cycle_lr=False,
             preprocessor=Preprocessor.feature_standardization,
@@ -388,7 +391,7 @@ DEFAULT_PARAMS = {
             preprocessor=Preprocessor.feature_standardization,
         ),
     },
-    Dataset.ascad_50: {
+    Dataset.ascad_v1_fk_50: {
         Model.ascad_mlp: Params(
             epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
             preprocessor=Preprocessor.none,
@@ -406,7 +409,7 @@ DEFAULT_PARAMS = {
             preprocessor=Preprocessor.horizontal_standardization,
         ),
     },
-    Dataset.ascad_100: {
+    Dataset.ascad_v1_fk_100: {
         Model.ascad_mlp: Params(
             epochs=200, batch_size=100, learning_rate=0.00001, one_cycle_lr=False,
             preprocessor=Preprocessor.none,
@@ -1295,7 +1298,7 @@ def main():
 def _filter_experiments():
     _es = Experiment.get_existing_experiments_on_disk(
         experiment_type=ExperimentType.original,
-        dataset=Dataset.ascad_r_0_noisy,
+        dataset=Dataset.ascad_v1_vk_0_noisy,
         model=Model.aisy_id_mlp,
     )
     for _e in _es:
